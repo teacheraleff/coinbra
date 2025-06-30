@@ -3,8 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query } from 'firebase/firestore';
 import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { LayoutDashboard, Megaphone, ListChecks, Plus, Trash2, X, Calendar, Bell, ChevronLeft, ChevronRight, Settings, FileText, DollarSign, Clock, User } from 'lucide-react';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
+import { LayoutDashboard, Megaphone, ListChecks, Plus, Trash2, X, Calendar, Bell, ChevronLeft, ChevronRight, FileText, DollarSign, Clock, User, ListTodo, CheckCircle } from 'lucide-react';
 
 // --- Configuração do Firebase ---
 // Estas variáveis são injetadas pelo ambiente. Não as modifique.
@@ -28,7 +28,14 @@ const tagColor = (tag) => {
         jaynni: 'bg-purple-200 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300',
     };
     return colors[tag?.toLowerCase()] || 'bg-slate-200 text-slate-800';
-}
+};
+
+const pieChartColors = {
+    fernanda: '#ec4899',
+    carlos: '#3b82f6',
+    aleff: '#14b8a6',
+    jaynni: '#a855f7',
+};
 
 const getWeekDays = (startDate) => {
     const startOfWeek = new Date(startDate);
@@ -78,6 +85,32 @@ const Dashboard = ({ campaigns, tasks, announcements, posts }) => {
         });
     }, [posts]);
 
+    const tasksByAssignee = useMemo(() => {
+        const counts = tasks.reduce((acc, task) => {
+            if (task.status === 'Pendente') {
+                const assignee = task.tag || 'Não atribuído';
+                acc[assignee] = (acc[assignee] || 0) + 1;
+            }
+            return acc;
+        }, {});
+        return Object.entries(counts).map(([name, value]) => ({ name: name.toUpperCase(), value }));
+    }, [tasks]);
+
+    const upcomingDeadlines = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return campaigns
+            .filter(c => c.deadline && new Date(c.deadline) >= today)
+            .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+            .slice(0, 4);
+    }, [campaigns]);
+
+    const recentTasks = useMemo(() => {
+        return tasks
+            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+            .slice(0, 5);
+    }, [tasks]);
+
     const KPI_Card = ({ icon, label, value, color }) => {
         const colors = {
             indigo: "from-indigo-500 to-indigo-600",
@@ -105,6 +138,49 @@ const Dashboard = ({ campaigns, tasks, announcements, posts }) => {
                 <KPI_Card icon={<ListChecks size={28} />} label="Tarefas Pendentes" value={tasks.filter(t => t.status !== 'Concluída').length} color="yellow" />
                 <KPI_Card icon={<Bell size={28} />} label="Avisos Ativos" value={announcements.length} color="red" />
                 <KPI_Card icon={<Calendar size={28} />} label="Posts da Semana" value={postsThisWeek.length} color="green" />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 bg-white dark:bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Tarefas Pendentes por Responsável</h2>
+                    <div style={{ height: '300px' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie data={tasksByAssignee} cx="50%" cy="50%" labelLine={false} outerRadius={120} fill="#8884d8" dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                                    {tasksByAssignee.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={pieChartColors[entry.name.toLowerCase()]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                <div className="space-y-8">
+                    <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Prazos de Campanhas</h2>
+                        <ul className="space-y-3">
+                            {upcomingDeadlines.map(c => (
+                                <li key={c.id} className="flex items-center justify-between">
+                                    <span className="font-medium text-slate-700 dark:text-slate-300">{c.name}</span>
+                                    <span className="font-bold text-indigo-600 dark:text-indigo-400">{new Date(c.deadline).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Tarefas Recentes</h2>
+                        <ul className="space-y-3">
+                            {recentTasks.map(t => (
+                                <li key={t.id} className="flex items-center space-x-3">
+                                    {t.status === 'Concluída' ? <CheckCircle size={18} className="text-green-500"/> : <ListTodo size={18} className="text-yellow-500"/>}
+                                    <span className="text-slate-700 dark:text-slate-300">{t.text}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -254,7 +330,7 @@ const Tasks = ({ tasks, db, userId }) => {
     const handleAddTask = async (e) => {
         e.preventDefault();
         if (!newTask.text) return;
-        await addDoc(collection(db, `artifacts/${appId}/public/data/tasks`), { ...newTask, status: 'Pendente', createdBy: userId });
+        await addDoc(collection(db, `artifacts/${appId}/public/data/tasks`), { ...newTask, status: 'Pendente', createdAt: new Date(), createdBy: userId });
         setNewTask({ text: '', tag: 'fernanda' });
     };
     
@@ -486,8 +562,9 @@ export default function App() {
             { id: 'fic2', name: 'Campanha de Verão - Descontos', budget: 25000, status: 'Planejada', description: 'Oferecer descontos progressivos em unidades selecionadas durante os meses de verão para impulsionar as vendas.', deadline: '2025-09-15', tag: 'carlos' },
         ]);
         setTasks([
-            { id: 'fic_task1', text: 'Preparar relatório de marketing de Maio', status: 'Pendente', tag: 'fernanda' },
-            { id: 'fic_task2', text: 'Agendar reunião com a agência de publicidade', status: 'Concluída', tag: 'carlos' },
+            { id: 'fic_task1', text: 'Preparar relatório de marketing de Maio', status: 'Pendente', tag: 'fernanda', createdAt: { seconds: Date.now() / 1000 - 10000 } },
+            { id: 'fic_task2', text: 'Agendar reunião com a agência de publicidade', status: 'Concluída', tag: 'carlos', createdAt: { seconds: Date.now() / 1000 - 20000 } },
+            { id: 'fic_task3', text: 'Definir orçamento para Q3', status: 'Pendente', tag: 'aleff', createdAt: { seconds: Date.now() / 1000 } },
         ]);
         setAnnouncements([
             { id: 'fic_ann1', title: 'Reunião de Alinhamento Semanal', content: 'Lembrete: a nossa reunião de marketing semanal é amanhã às 10h. Por favor, tragam as vossas atualizações.', createdAt: { seconds: Date.now() / 1000 } },
