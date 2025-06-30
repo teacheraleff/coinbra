@@ -1,21 +1,7 @@
 // Importando as dependências necessárias do React e bibliotecas externas
 import React, { useState, useEffect, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query } from 'firebase/firestore';
-import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { LayoutDashboard, Megaphone, ListChecks, Plus, Trash2, X, Calendar, Bell, ChevronLeft, ChevronRight, FileText, DollarSign, Clock, User, ListTodo, CheckCircle } from 'lucide-react';
-
-// --- Configuração do Firebase ---
-// Estas variáveis são injetadas pelo ambiente. Não as modifique.
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-coinbra-app';
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-// Inicializa o Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
 
 // --- Constantes e Funções Globais ---
 const teamTags = ["fernanda", "carlos", "aleff", "jaynni"];
@@ -107,7 +93,7 @@ const Dashboard = ({ campaigns, tasks, announcements, posts }) => {
 
     const recentTasks = useMemo(() => {
         return tasks
-            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
             .slice(0, 5);
     }, [tasks]);
 
@@ -187,26 +173,26 @@ const Dashboard = ({ campaigns, tasks, announcements, posts }) => {
 };
 
 // --- Componente de Gerenciamento de Campanhas ---
-const Campaigns = ({ campaigns, db, userId }) => {
+const Campaigns = ({ campaigns, setCampaigns }) => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedCampaign, setSelectedCampaign] = useState(null);
     const [newCampaign, setNewCampaign] = useState({ name: '', budget: '', status: 'Planejada', description: '', deadline: '', tag: 'fernanda' });
 
-    const handleAddCampaign = async (e) => {
+    const handleAddCampaign = (e) => {
         e.preventDefault();
         if (!newCampaign.name || !newCampaign.budget) return;
-        await addDoc(collection(db, `artifacts/${appId}/public/data/campaigns`), { ...newCampaign, budget: parseFloat(newCampaign.budget), createdBy: userId });
+        setCampaigns(prev => [...prev, { ...newCampaign, id: crypto.randomUUID(), budget: parseFloat(newCampaign.budget) }]);
         setNewCampaign({ name: '', budget: '', status: 'Planejada', description: '', deadline: '', tag: 'fernanda' });
         setIsAddModalOpen(false);
     };
     
-    const handleDeleteCampaign = async (id) => {
+    const handleDeleteCampaign = (id) => {
         if (selectedCampaign && selectedCampaign.id === id) {
             setIsDetailModalOpen(false);
             setSelectedCampaign(null);
         }
-        await deleteDoc(doc(db, `artifacts/${appId}/public/data/campaigns`, id));
+        setCampaigns(prev => prev.filter(c => c.id !== id));
     };
     
     const handleViewDetails = (campaign) => {
@@ -324,23 +310,23 @@ const Campaigns = ({ campaigns, db, userId }) => {
 };
 
 // --- Componente de Gerenciamento de Tarefas ---
-const Tasks = ({ tasks, db, userId }) => {
+const Tasks = ({ tasks, setTasks }) => {
     const [newTask, setNewTask] = useState({ text: '', tag: 'fernanda' });
 
-    const handleAddTask = async (e) => {
+    const handleAddTask = (e) => {
         e.preventDefault();
         if (!newTask.text) return;
-        await addDoc(collection(db, `artifacts/${appId}/public/data/tasks`), { ...newTask, status: 'Pendente', createdAt: new Date(), createdBy: userId });
+        setTasks(prev => [...prev, { ...newTask, id: crypto.randomUUID(), status: 'Pendente', createdAt: new Date() }]);
         setNewTask({ text: '', tag: 'fernanda' });
     };
     
-    const handleToggleTask = async (id, currentStatus) => {
+    const handleToggleTask = (id, currentStatus) => {
         const newStatus = currentStatus === 'Concluída' ? 'Pendente' : 'Concluída';
-        await updateDoc(doc(db, `artifacts/${appId}/public/data/tasks`, id), { status: newStatus });
+        setTasks(prev => prev.map(task => task.id === id ? { ...task, status: newStatus } : task));
     };
 
-    const handleDeleteTask = async (id) => {
-        await deleteDoc(doc(db, `artifacts/${appId}/public/data/tasks`, id));
+    const handleDeleteTask = (id) => {
+        setTasks(prev => prev.filter(task => task.id !== id));
     };
 
     return (
@@ -374,20 +360,20 @@ const Tasks = ({ tasks, db, userId }) => {
 };
 
 // --- Componente de Avisos ---
-const Announcements = ({ announcements, db, userId }) => {
+const Announcements = ({ announcements, setAnnouncements }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '' });
 
-    const handleAddAnnouncement = async (e) => {
+    const handleAddAnnouncement = (e) => {
         e.preventDefault();
         if (!newAnnouncement.title || !newAnnouncement.content) return;
-        await addDoc(collection(db, `artifacts/${appId}/public/data/announcements`), { ...newAnnouncement, createdAt: new Date(), createdBy: userId });
+        setAnnouncements(prev => [...prev, { ...newAnnouncement, id: crypto.randomUUID(), createdAt: new Date() }]);
         setNewAnnouncement({ title: '', content: '' });
         setIsModalOpen(false);
     };
 
-    const handleDeleteAnnouncement = async (id) => {
-        await deleteDoc(doc(db, `artifacts/${appId}/public/data/announcements`, id));
+    const handleDeleteAnnouncement = (id) => {
+        setAnnouncements(prev => prev.filter(ann => ann.id !== id));
     };
 
     return (
@@ -413,7 +399,7 @@ const Announcements = ({ announcements, db, userId }) => {
                          <button onClick={() => handleDeleteAnnouncement(ann.id)} className="absolute top-4 right-4 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18} /></button>
                         <h3 className="font-bold text-xl text-indigo-700 dark:text-indigo-400 mb-2">{ann.title}</h3>
                         <p className="text-slate-600 dark:text-slate-300">{ann.content}</p>
-                        <p className="text-xs text-slate-400 mt-4">Publicado em: {new Date(ann.createdAt?.seconds * 1000).toLocaleDateString()}</p>
+                        <p className="text-xs text-slate-400 mt-4">Publicado em: {new Date(ann.createdAt).toLocaleDateString()}</p>
                     </div>
                 ))}
             </div>
@@ -422,7 +408,7 @@ const Announcements = ({ announcements, db, userId }) => {
 };
 
 // --- Componente Calendário de Postagens ---
-const WeeklyCalendar = ({ posts, db, userId }) => {
+const WeeklyCalendar = ({ posts, setPosts }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedDate, setSelectedDate] = useState(null);
@@ -440,19 +426,15 @@ const WeeklyCalendar = ({ posts, db, userId }) => {
         setNewPost({ content: '', platform: 'Instagram' });
     };
 
-    const handleAddPost = async (e) => {
+    const handleAddPost = (e) => {
         e.preventDefault();
         if (!newPost.content) return;
-        await addDoc(collection(db, `artifacts/${appId}/public/data/posts`), {
-            ...newPost,
-            date: formatDate(selectedDate),
-            createdBy: userId
-        });
+        setPosts(prev => [...prev, { ...newPost, id: crypto.randomUUID(), date: formatDate(selectedDate) }]);
         handleCloseModal();
     };
     
-    const handleDeletePost = async (id) => {
-        await deleteDoc(doc(db, `artifacts/${appId}/public/data/posts`, id));
+    const handleDeletePost = (id) => {
+        setPosts(prev => prev.filter(post => post.id !== id));
     };
 
     const postsByDate = useMemo(() => {
@@ -552,8 +534,6 @@ export default function App() {
     const [tasks, setTasks] = useState([]);
     const [announcements, setAnnouncements] = useState([]);
     const [posts, setPosts] = useState([]);
-    const [userId, setUserId] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
 
     // Efeito para popular dados fictícios iniciais
     useEffect(() => {
@@ -562,78 +542,28 @@ export default function App() {
             { id: 'fic2', name: 'Campanha de Verão - Descontos', budget: 25000, status: 'Planejada', description: 'Oferecer descontos progressivos em unidades selecionadas durante os meses de verão para impulsionar as vendas.', deadline: '2025-09-15', tag: 'carlos' },
         ]);
         setTasks([
-            { id: 'fic_task1', text: 'Preparar relatório de marketing de Maio', status: 'Pendente', tag: 'fernanda', createdAt: { seconds: Date.now() / 1000 - 10000 } },
-            { id: 'fic_task2', text: 'Agendar reunião com a agência de publicidade', status: 'Concluída', tag: 'carlos', createdAt: { seconds: Date.now() / 1000 - 20000 } },
-            { id: 'fic_task3', text: 'Definir orçamento para Q3', status: 'Pendente', tag: 'aleff', createdAt: { seconds: Date.now() / 1000 } },
+            { id: 'fic_task1', text: 'Preparar relatório de marketing de Maio', status: 'Pendente', tag: 'fernanda', createdAt: new Date(Date.now() - 10000) },
+            { id: 'fic_task2', text: 'Agendar reunião com a agência de publicidade', status: 'Concluída', tag: 'carlos', createdAt: new Date(Date.now() - 20000) },
+            { id: 'fic_task3', text: 'Definir orçamento para Q3', status: 'Pendente', tag: 'aleff', createdAt: new Date() },
         ]);
         setAnnouncements([
-            { id: 'fic_ann1', title: 'Reunião de Alinhamento Semanal', content: 'Lembrete: a nossa reunião de marketing semanal é amanhã às 10h. Por favor, tragam as vossas atualizações.', createdAt: { seconds: Date.now() / 1000 } },
-            { id: 'fic_ann2', title: 'Novas Diretrizes da Marca', content: 'O manual de identidade visual foi atualizado. Consultem a pasta partilhada para aceder à versão mais recente.', createdAt: { seconds: (Date.now() / 1000) - 86400 } },
+            { id: 'fic_ann1', title: 'Reunião de Alinhamento Semanal', content: 'Lembrete: a nossa reunião de marketing semanal é amanhã às 10h. Por favor, tragam as vossas atualizações.', createdAt: new Date() },
+            { id: 'fic_ann2', title: 'Novas Diretrizes da Marca', content: 'O manual de identidade visual foi atualizado. Consultem a pasta partilhada para aceder à versão mais recente.', createdAt: new Date(Date.now() - 86400000) },
         ]);
     }, []);
-
-    // Efeito para autenticação
-    useEffect(() => {
-        const initAuth = async () => {
-            try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Erro na autenticação:", error);
-            }
-        };
-        const unsub = onAuthStateChanged(auth, (user) => {
-            if (user) {
-                setUserId(user.uid);
-                setIsLoading(false);
-            } else {
-                initAuth();
-            }
-        });
-        return () => unsub();
-    }, []);
-    
-    // Efeitos para ouvir as coleções do Firestore
-    useEffect(() => {
-        if (!userId) return;
-
-        const collections = {
-            campaigns: setCampaigns,
-            tasks: setTasks,
-            announcements: setAnnouncements,
-            posts: setPosts
-        };
-
-        const unsubs = Object.entries(collections).map(([name, setter]) => {
-            const q = query(collection(db, `artifacts/${appId}/public/data/${name}`));
-            return onSnapshot(q, (snapshot) => {
-                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (snapshot.docs.length > 0) {
-                    setter(data);
-                }
-            }, (error) => {
-                console.error(`Erro ao carregar ${name}:`, error)
-            });
-        });
-
-        return () => unsubs.forEach(unsub => unsub());
-    }, [userId]);
 
     const renderPage = () => {
         switch (page) {
             case 'dashboard':
                 return <Dashboard campaigns={campaigns} tasks={tasks} announcements={announcements} posts={posts} />;
             case 'campaigns':
-                return <Campaigns campaigns={campaigns} db={db} userId={userId} />;
+                return <Campaigns campaigns={campaigns} setCampaigns={setCampaigns} />;
             case 'tasks':
-                return <Tasks tasks={tasks} db={db} userId={userId} />;
+                return <Tasks tasks={tasks} setTasks={setTasks} />;
             case 'announcements':
-                return <Announcements announcements={announcements} db={db} userId={userId} />;
+                return <Announcements announcements={announcements} setAnnouncements={setAnnouncements} />;
             case 'calendar':
-                return <WeeklyCalendar posts={posts} db={db} userId={userId} />;
+                return <WeeklyCalendar posts={posts} setPosts={setPosts} />;
             default:
                 return <Dashboard campaigns={campaigns} tasks={tasks} announcements={announcements} posts={posts} />;
         }
@@ -645,10 +575,6 @@ export default function App() {
             <span className="font-semibold">{label}</span>
         </button>
     );
-
-    if (isLoading && !userId) {
-        return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white">Carregando Sistema de Marketing...</div>
-    }
 
     return (
         <div className="flex min-h-screen bg-slate-50 dark:bg-slate-900 font-sans">
@@ -668,8 +594,8 @@ export default function App() {
                     </nav>
                 </div>
                 <div className="text-xs text-slate-400 dark:text-slate-500">
-                    <p className="font-semibold">ID da Equipe (partilhe):</p>
-                    <p className="break-words">{userId}</p>
+                    <p className="font-semibold">Hub Colaborativo</p>
+                    <p>Versão Local</p>
                 </div>
             </aside>
 
