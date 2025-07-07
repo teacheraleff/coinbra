@@ -80,8 +80,8 @@
 </head>
 <body class="bg-stone-100 text-stone-800">
 
-    <!-- Tela de Login (Oculta para preview) -->
-    <div id="login-view" class="hidden items-center justify-center min-h-screen">
+    <!-- Tela de Login -->
+    <div id="login-view" class="flex items-center justify-center min-h-screen">
         <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
             <div class="text-center">
                 <img src="https://placehold.co/100x100/0D2A4C/FFFFFF?text=C" alt="Logo Coinbra" class="w-24 h-auto mx-auto rounded-lg mb-4">
@@ -107,7 +107,7 @@
         </div>
     </div>
 
-    <!-- Tela de Aprovação Pendente (Oculta por padrão) -->
+    <!-- Tela de Aprovação Pendente -->
     <div id="pending-view" class="hidden items-center justify-center min-h-screen">
         <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg text-center">
             <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -119,8 +119,8 @@
         </div>
     </div>
 
-    <!-- Hub Principal (Visível para preview) -->
-    <div id="hub-view" class="">
+    <!-- Hub Principal (Oculto por padrão) -->
+    <div id="hub-view" class="hidden">
         <div id="app-container" class="min-h-screen md:flex bg-stone-50">
             <aside class="md:w-64 bg-white md:border-r border-b border-stone-200 p-4 md:p-6 flex flex-col">
                 <div class="mb-4 text-center">
@@ -222,19 +222,16 @@
                                 showPendingView();
                             }
                         } else {
-                            currentUserRole = 'admin'; // Default to admin for preview
-                            currentUserName = 'Admin';
-                            document.getElementById('profile-picture').src = 'https://placehold.co/100x100/0D2A4C/FFFFFF?text=C';
-                            setupFirestoreListeners();
-                            showHubView();
+                           showLoginView(); // If user exists in Auth but not Firestore, treat as logged out
                         }
                     } else {
-                        currentUserRole = 'admin'; // Default for preview
-                        userId = 'preview-user';
-                        currentUserName = 'Admin';
-                        document.getElementById('profile-picture').src = 'https://placehold.co/100x100/0D2A4C/FFFFFF?text=C';
-                        setupFirestoreListeners();
-                        showHubView();
+                        // User is signed out, show login view
+                        currentUserRole = null;
+                        userId = null;
+                        currentUserName = null;
+                        allUnsubscribers.forEach(unsub => unsub && unsub());
+                        allUnsubscribers = [];
+                        showLoginView();
                     }
                     document.getElementById('welcome-message').textContent = `Bem-vindo, ${currentUserName || ''}`;
                 });
@@ -295,6 +292,8 @@
             hubView.classList.add('hidden');
             loginView.classList.remove('hidden');
             loginView.classList.add('flex');
+            pendingView.classList.add('hidden');
+            pendingView.classList.remove('flex');
         }
         function showHubView() {
             hubView.classList.remove('hidden');
