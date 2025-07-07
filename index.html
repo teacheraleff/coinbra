@@ -1,608 +1,1295 @@
-// Importando as dependências necessárias do React e bibliotecas externas
-import React, { useState, useEffect, useMemo } from 'react';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
-import { LayoutDashboard, Megaphone, ListChecks, Plus, Trash2, X, Calendar, Bell, ChevronLeft, ChevronRight, FileText, DollarSign, Clock, User, ListTodo, CheckCircle } from 'lucide-react';
-
-// --- Constantes e Funções Globais ---
-const teamTags = ["fernanda", "carlos", "aleff", "jaynni"];
-
-const tagColor = (tag) => {
-    const colors = {
-        fernanda: 'bg-pink-200 text-pink-800 dark:bg-pink-900/50 dark:text-pink-300',
-        carlos: 'bg-blue-200 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
-        aleff: 'bg-teal-200 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300',
-        jaynni: 'bg-purple-200 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300',
-    };
-    return colors[tag?.toLowerCase()] || 'bg-slate-200 text-slate-800';
-};
-
-const pieChartColors = {
-    fernanda: '#ec4899',
-    carlos: '#3b82f6',
-    aleff: '#14b8a6',
-    jaynni: '#a855f7',
-};
-
-const getWeekDays = (startDate) => {
-    const startOfWeek = new Date(startDate);
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-    const week = [];
-    for (let i = 0; i < 7; i++) {
-        const day = new Date(startOfWeek);
-        day.setDate(day.getDate() + i);
-        week.push(day);
-    }
-    return week;
-};
-
-const formatDate = (date) => {
-    if (!date) return '';
-    return date.toISOString().split('T')[0];
-};
-
-// --- Componente Modal Genérico ---
-const Modal = ({ children, isOpen, onClose }) => {
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 transition-opacity duration-300">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 relative animate-fade-in-up border border-slate-200 dark:border-slate-700">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
-                    <X size={24} />
-                </button>
-                {children}
-            </div>
-        </div>
-    );
-};
-
-// --- Componente Dashboard ---
-const Dashboard = ({ campaigns, tasks, announcements, posts }) => {
-    const postsThisWeek = useMemo(() => {
-        const today = new Date();
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay());
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hub | Coinbra</title>
+    <link rel="icon" type="image/png" href="https://placehold.co/32x32/0D2A4C/FFFFFF?text=C">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Palette: Coinbra Brand Colors: #0D2A4C (Navy Blue), #FFFFFF (White), #F3F4F6 (Light Gray) -->
+    <style>
+        body {
+            font-family: 'DM Sans', sans-serif;
+            line-height: 1.25;
+        }
+        .nav-item.active {
+            background-color: #eef2ff; /* indigo-50 */
+            color: #0D2A4C; /* Navy Blue */
+            font-weight: 600;
+        }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
+        .modal-overlay.visible { opacity: 1; visibility: visible; }
+        .modal-content { background-color: white; padding: 2rem; border-radius: 0.75rem; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; transform: scale(0.95); transition: transform 0.3s; }
+        .modal-overlay.visible .modal-content { transform: scale(1); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e7e5e4; padding-bottom: 1rem; margin-bottom: 1rem; }
+        .modal-header h4 { font-size: 1.25rem; font-weight: 700; color: #44403c; }
+        .modal-close-btn { background: none; border: none; cursor: pointer; color: #a8a29e; }
         
-        return posts.filter(post => {
-            const postDate = new Date(post.date);
-            return postDate >= weekStart && postDate <= weekEnd;
-        });
-    }, [posts]);
+        .base-card { background-color: #ffffff; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e7e5e4; transition: all 0.2s; }
+        .base-card:hover { border-color: #0D2A4C; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        
+        .status-tag { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        /* Statuses */
+        .status-ativa, .status-presencial, .status-aprovado, .status-cliente { background-color: #D1FAE5; color: #065F46; }
+        .status-planejada, .status-online, .status-potencial, .status-em-obras { background-color: #DBEAFE; color: #1E40AF; }
+        .status-concluída, .status-entregue { background-color: #F3F4F6; color: #4B5563; }
+        .status-pendente, .status-lead, .status-lançamento { background-color: #FEF3C7; color: #92400E; }
+        .status-rejeitado { background-color: #FEE2E2; color: #991B1B; }
 
-    const tasksByAssignee = useMemo(() => {
-        const counts = tasks.reduce((acc, task) => {
-            if (task.status === 'Pendente') {
-                const assignee = task.tag || 'Não atribuído';
-                acc[assignee] = (acc[assignee] || 0) + 1;
-            }
-            return acc;
-        }, {});
-        return Object.entries(counts).map(([name, value]) => ({ name: name.toUpperCase(), value }));
-    }, [tasks]);
+        .task-card { background-color: #ffffff; border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e7e5e4; transition: all 0.2s ease; }
+        .task-card.completed { background-color: #f9fafb; border-color: #e5e7eb; }
+        .task-card.completed p { text-decoration: line-through; color: #9ca3af; }
+        .task-card:hover { border-color: #0D2A4C; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transform: translateY(-2px); }
+        .user-tag { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+        .tag-admin { background-color: #E5E7EB; color: #374151; }
+        .deadline-text { font-weight: 600; color: #57534e; }
+        .deadline-overdue { color: #b91c1c; }
+        .task-delete-btn { background: none; border: none; cursor: pointer; color: #9ca3af; transition: color 0.2s; }
+        .task-delete-btn:hover { color: #ef4444; }
 
-    const upcomingDeadlines = useMemo(() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return campaigns
-            .filter(c => c.deadline && new Date(c.deadline) >= today)
-            .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
-            .slice(0, 4);
-    }, [campaigns]);
+        .week-container { background-color: #ffffff; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e7e5e4; margin-bottom: 2rem; }
+        .week-header { font-size: 1.5rem; font-weight: 700; color: #44403c; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e7e5e4; }
+        .week-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
+        .day-card { background-color: #f9fafb; border-radius: 0.5rem; padding: 1rem; border: 1px solid #f3f4f6; min-height: 150px; cursor: pointer; transition: border-color 0.2s; }
+        .day-card:hover { border-color: #0D2A4C; }
+        .day-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+        .day-name { font-weight: 600; color: #a8a29e; font-size: 0.875rem; }
+        .day-number { font-weight: 700; color: #44403c; font-size: 1.25rem; }
+        .post-item { background-color: #ffffff; border-radius: 0.375rem; padding: 0.5rem; margin-bottom: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); position: relative; }
+        .post-type-tag { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; margin-bottom: 0.25rem; text-transform: uppercase; }
+        .post-tag-documento { background-color: #DBEAFE; color: #1E40AF; }
+        .post-tag-relatório { background-color: #EFEBFF; color: #4C1D95; }
+        .post-tag-apresentação { background-color: #D1FAE5; color: #065F46; }
+        .post-tag-outro { background-color: #F3F4F6; color: #1F2937; }
+        .post-description { font-size: 0.875rem; color: #57534e; }
+        .delete-btn { position: absolute; top: 4px; right: 4px; background: none; border: none; cursor: pointer; color: #d1d5db; opacity: 1; transition: color 0.2s; }
+        .delete-btn:hover { color: #ef4444; }
 
-    const recentTasks = useMemo(() => {
-        return tasks
-            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-            .slice(0, 5);
-    }, [tasks]);
+        .form-input { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; }
+        .primary-btn { background-color: #0D2A4C; color: #FFFFFF; padding: 0.75rem 1.5rem; border-radius: 0.375rem; font-weight: 600; transition: background-color 0.2s; width: 100%; border: none; cursor: pointer; }
+        .primary-btn:hover { background-color: #1A3B6C; }
+        .secondary-btn { background-color: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 600; transition: all 0.2s; }
+        .secondary-btn:hover { background-color: #e5e7eb; }
+        .danger-btn { background-color: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 600; transition: background-color 0.2s; border: none; cursor: pointer; }
+        .danger-btn:hover { background-color: #dc2626; }
+    </style>
+</head>
+<body class="bg-stone-100 text-stone-800">
 
-    const KPI_Card = ({ icon, label, value, color }) => {
-        const colors = {
-            indigo: "from-indigo-500 to-indigo-600",
-            yellow: "from-yellow-500 to-yellow-600",
-            red: "from-red-500 to-red-600",
-            green: "from-green-500 to-green-600",
-        };
-
-        return (
-            <div className={`bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 flex items-center space-x-4 transition-all duration-300 hover:shadow-xl hover:-translate-y-1`}>
-                <div className={`bg-gradient-to-br ${colors[color]} p-4 rounded-xl text-white shadow-md`}>{icon}</div>
+    <!-- Tela de Login (Oculta para preview) -->
+    <div id="login-view" class="hidden items-center justify-center min-h-screen">
+        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
+            <div class="text-center">
+                <img src="https://placehold.co/100x100/0D2A4C/FFFFFF?text=C" alt="Logo Coinbra" class="w-24 h-auto mx-auto rounded-lg mb-4">
+                <h2 class="text-2xl font-bold text-stone-800">Aceder ao Hub de Gestão</h2>
+            </div>
+            <form id="login-form" class="space-y-4">
                 <div>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium">{label}</p>
-                    <p className="text-3xl font-bold text-slate-900 dark:text-white">{value}</p>
+                    <label for="login-email" class="text-sm font-medium text-stone-700">Email</label>
+                    <input type="email" id="login-email" name="email" required class="form-input mt-1">
                 </div>
-            </div>
-        )
-    }
-
-    return (
-        <div className="space-y-8">
-            <h1 className="text-4xl font-bold text-slate-800 dark:text-white">Dashboard</h1>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <KPI_Card icon={<Megaphone size={28} />} label="Campanhas Ativas" value={campaigns.filter(c => c.status === 'Ativa').length} color="indigo" />
-                <KPI_Card icon={<ListChecks size={28} />} label="Tarefas Pendentes" value={tasks.filter(t => t.status !== 'Concluída').length} color="yellow" />
-                <KPI_Card icon={<Bell size={28} />} label="Avisos Ativos" value={announcements.length} color="red" />
-                <KPI_Card icon={<Calendar size={28} />} label="Posts da Semana" value={postsThisWeek.length} color="green" />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 bg-white dark:bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
-                    <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Tarefas Pendentes por Responsável</h2>
-                    <div style={{ height: '300px' }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie data={tasksByAssignee} cx="50%" cy="50%" labelLine={false} outerRadius={120} fill="#8884d8" dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                                    {tasksByAssignee.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={pieChartColors[entry.name.toLowerCase()]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
+                <div>
+                    <label for="login-password" class="text-sm font-medium text-stone-700">Palavra-passe</label>
+                    <input type="password" id="login-password" name="password" required class="form-input mt-1">
                 </div>
-
-                <div className="space-y-8">
-                    <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Prazos de Campanhas</h2>
-                        <ul className="space-y-3">
-                            {upcomingDeadlines.map(c => (
-                                <li key={c.id} className="flex items-center justify-between">
-                                    <span className="font-medium text-slate-700 dark:text-slate-300">{c.name}</span>
-                                    <span className="font-bold text-indigo-600 dark:text-indigo-400">{new Date(c.deadline).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                    <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Tarefas Recentes</h2>
-                        <ul className="space-y-3">
-                            {recentTasks.map(t => (
-                                <li key={t.id} className="flex items-center space-x-3">
-                                    {t.status === 'Concluída' ? <CheckCircle size={18} className="text-green-500"/> : <ListTodo size={18} className="text-yellow-500"/>}
-                                    <span className="text-slate-700 dark:text-slate-300">{t.text}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
+                <p id="login-error" class="text-sm text-red-600"></p>
+                <div>
+                    <button type="submit" class="primary-btn">Entrar</button>
                 </div>
-            </div>
+            </form>
+            <p class="text-sm text-center text-stone-600">
+                Não tem uma conta? <button onclick="openSignUpModal()" class="font-medium text-[#0D2A4C] hover:underline">Registe-se</button>
+            </p>
         </div>
-    );
-};
+    </div>
 
-// --- Componente de Gerenciamento de Campanhas ---
-const Campaigns = ({ campaigns, setCampaigns }) => {
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [selectedCampaign, setSelectedCampaign] = useState(null);
-    const [newCampaign, setNewCampaign] = useState({ name: '', budget: '', status: 'Planejada', description: '', deadline: '', tag: 'fernanda' });
+    <!-- Tela de Aprovação Pendente (Oculta por padrão) -->
+    <div id="pending-view" class="hidden items-center justify-center min-h-screen">
+        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h2 class="text-2xl font-bold text-stone-800">Aprovação Pendente</h2>
+            <p class="text-stone-600">O seu registo foi concluído com sucesso. Aguarde a aprovação de um administrador para aceder ao Hub.</p>
+            <button id="logout-pending-button" class="mt-4 text-sm font-medium text-stone-500 hover:text-stone-800">Sair</button>
+        </div>
+    </div>
 
-    const handleAddCampaign = (e) => {
-        e.preventDefault();
-        if (!newCampaign.name || !newCampaign.budget) return;
-        setCampaigns(prev => [...prev, { ...newCampaign, id: crypto.randomUUID(), budget: parseFloat(newCampaign.budget) }]);
-        setNewCampaign({ name: '', budget: '', status: 'Planejada', description: '', deadline: '', tag: 'fernanda' });
-        setIsAddModalOpen(false);
-    };
-    
-    const handleDeleteCampaign = (id) => {
-        if (selectedCampaign && selectedCampaign.id === id) {
-            setIsDetailModalOpen(false);
-            setSelectedCampaign(null);
-        }
-        setCampaigns(prev => prev.filter(c => c.id !== id));
-    };
-    
-    const handleViewDetails = (campaign) => {
-        setSelectedCampaign(campaign);
-        setIsDetailModalOpen(true);
-    };
-    
-    const statusPill = (status) => {
-        const styles = {
-            'Ativa': 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
-            'Planejada': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300',
-            'Concluída': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
-            'Pausada': 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300',
-        }
-        return <span className={`px-3 py-1 text-sm font-semibold rounded-full ${styles[status]}`}>{status}</span>
-    }
-
-    return (
-        <div className="space-y-8">
-            <div className="flex justify-between items-center">
-                <h1 className="text-4xl font-bold text-slate-800 dark:text-white">Campanhas</h1>
-                <button onClick={() => setIsAddModalOpen(true)} className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold py-2 px-5 rounded-lg flex items-center space-x-2 hover:shadow-lg hover:shadow-indigo-500/30 transition-shadow">
-                    <Plus size={20} />
-                    <span>Nova Campanha</span>
-                </button>
-            </div>
-            
-            <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)}>
-                <h3 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">Adicionar Nova Campanha</h3>
-                <form onSubmit={handleAddCampaign} className="space-y-4">
-                    <input type="text" placeholder="Nome da Campanha" value={newCampaign.name} onChange={(e) => setNewCampaign({...newCampaign, name: e.target.value})} className="w-full p-3 bg-slate-100 dark:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    <textarea placeholder="Descrição da campanha..." value={newCampaign.description} onChange={(e) => setNewCampaign({...newCampaign, description: e.target.value})} className="w-full p-3 bg-slate-100 dark:bg-slate-700 rounded-lg h-24 border border-slate-300 dark:border-slate-600" />
-                    <input type="number" placeholder="Orçamento (R$)" value={newCampaign.budget} onChange={(e) => setNewCampaign({...newCampaign, budget: e.target.value})} className="w-full p-3 bg-slate-100 dark:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    <div>
-                        <label className="text-sm text-slate-500 dark:text-slate-400">Prazo Final</label>
-                        <input type="date" value={newCampaign.deadline} onChange={(e) => setNewCampaign({...newCampaign, deadline: e.target.value})} className="w-full p-3 bg-slate-100 dark:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    </div>
-                    <div>
-                        <label className="text-sm text-slate-500 dark:text-slate-400">Responsável</label>
-                        <select value={newCampaign.tag} onChange={(e) => setNewCampaign({...newCampaign, tag: e.target.value})} className="w-full p-3 bg-slate-100 dark:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            {teamTags.map(tag => <option key={tag} value={tag}>{tag.toUpperCase()}</option>)}
-                        </select>
-                    </div>
-                    <select value={newCampaign.status} onChange={(e) => setNewCampaign({...newCampaign, status: e.target.value})} className="w-full p-3 bg-slate-100 dark:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option>Planejada</option>
-                        <option>Ativa</option>
-                        <option>Concluída</option>
-                        <option>Pausada</option>
-                    </select>
-                    <button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold py-3 rounded-lg hover:shadow-lg hover:shadow-indigo-500/30 transition-shadow">Adicionar</button>
-                </form>
-            </Modal>
-
-            {selectedCampaign && (
-                <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)}>
-                    <h2 className="text-2xl font-bold mb-2 text-indigo-700 dark:text-indigo-400">{selectedCampaign.name}</h2>
-                    <div className="mb-6">{statusPill(selectedCampaign.status)}</div>
-                    
-                    <div className="space-y-4 text-slate-700 dark:text-slate-300">
-                        <div className="flex items-start space-x-3">
-                            <User className="text-gray-500 mt-1"/>
-                            <div>
-                                <h4 className="font-semibold text-slate-800 dark:text-white">Responsável</h4>
-                                <span className={`px-3 py-1 text-xs font-bold rounded-full ${tagColor(selectedCampaign.tag)}`}>{selectedCampaign.tag.toUpperCase()}</span>
-                            </div>
-                        </div>
-                        <div className="flex items-start space-x-3">
-                            <FileText className="text-indigo-500 mt-1"/>
-                            <div>
-                                <h4 className="font-semibold text-slate-800 dark:text-white">Descrição</h4>
-                                <p>{selectedCampaign.description || 'Nenhuma descrição fornecida.'}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-start space-x-3">
-                            <DollarSign className="text-green-500 mt-1"/>
-                            <div>
-                                <h4 className="font-semibold text-slate-800 dark:text-white">Orçamento</h4>
-                                <p>R$ {Number(selectedCampaign.budget).toFixed(2)}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-start space-x-3">
-                            <Clock className="text-red-500 mt-1"/>
-                            <div>
-                                <h4 className="font-semibold text-slate-800 dark:text-white">Prazo Final</h4>
-                                <p>{selectedCampaign.deadline ? new Date(selectedCampaign.deadline).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : 'Não definido'}</p>
-                            </div>
-                        </div>
-                    </div>
-                     <button onClick={() => handleDeleteCampaign(selectedCampaign.id)} className="mt-6 w-full flex items-center justify-center space-x-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 py-2 rounded-lg transition-colors">
-                        <Trash2 size={16} />
-                        <span>Apagar Campanha</span>
+    <!-- Hub Principal (Visível para preview) -->
+    <div id="hub-view" class="">
+        <div id="app-container" class="min-h-screen md:flex bg-stone-50">
+            <aside class="md:w-64 bg-white md:border-r border-b border-stone-200 p-4 md:p-6 flex flex-col">
+                <div class="mb-4 text-center">
+                    <label for="profile-picture-upload" class="cursor-pointer group">
+                        <img id="profile-picture" src="https://placehold.co/100x100/0D2A4C/FFFFFF?text=C" alt="Foto de Perfil" class="w-24 h-24 mx-auto rounded-full object-cover border-4 border-transparent group-hover:border-indigo-200 transition-all">
+                    </label>
+                    <input type="file" id="profile-picture-upload" class="hidden" accept="image/*">
+                </div>
+                <h1 class="text-xl font-bold text-stone-800 text-center">Hub Mkt + Com</h1>
+                <p id="welcome-message" class="text-center text-sm text-stone-600 mb-6"></p>
+                <nav id="main-navigation" class="space-y-1 flex-1">
+                    <!-- Menu items are dynamically generated here -->
+                </nav>
+                <div class="mt-4">
+                    <button id="logout-button" class="nav-item w-full text-left px-4 py-2.5 rounded-lg text-stone-700 hover:bg-red-50 hover:text-red-600 transition-colors flex items-center font-semibold">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        Sair
                     </button>
-                </Modal>
-            )}
-
-            <div className="bg-white dark:bg-slate-800/50 p-4 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
-                <ul className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {campaigns.map(campaign => (
-                        <li key={campaign.id} onClick={() => handleViewDetails(campaign)} className="py-4 px-2 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors cursor-pointer group">
-                            <div>
-                                <p className="font-semibold text-lg text-slate-900 dark:text-white">{campaign.name}</p>
-                                <p className="text-slate-500 dark:text-slate-400">Orçamento: R$ {Number(campaign.budget).toFixed(2)}</p>
-                            </div>
-                            <div className="flex items-center space-x-4">
-                               <span className={`px-3 py-1 text-xs font-bold rounded-full ${tagColor(campaign.tag)}`}>{campaign.tag.toUpperCase()}</span>
-                               {statusPill(campaign.status)}
-                               <button onClick={(e) => { e.stopPropagation(); handleDeleteCampaign(campaign.id); }} className="text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-        </div>
-    );
-};
-
-// --- Componente de Gerenciamento de Tarefas ---
-const Tasks = ({ tasks, setTasks }) => {
-    const [newTask, setNewTask] = useState({ text: '', tag: 'fernanda' });
-
-    const handleAddTask = (e) => {
-        e.preventDefault();
-        if (!newTask.text) return;
-        setTasks(prev => [...prev, { ...newTask, id: crypto.randomUUID(), status: 'Pendente', createdAt: new Date() }]);
-        setNewTask({ text: '', tag: 'fernanda' });
-    };
-    
-    const handleToggleTask = (id, currentStatus) => {
-        const newStatus = currentStatus === 'Concluída' ? 'Pendente' : 'Concluída';
-        setTasks(prev => prev.map(task => task.id === id ? { ...task, status: newStatus } : task));
-    };
-
-    const handleDeleteTask = (id) => {
-        setTasks(prev => prev.filter(task => task.id !== id));
-    };
-
-    return (
-        <div className="space-y-8">
-            <h1 className="text-4xl font-bold text-slate-800 dark:text-white">Lista de Tarefas</h1>
-            <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
-                <form onSubmit={handleAddTask} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <input type="text" value={newTask.text} onChange={(e) => setNewTask({ ...newTask, text: e.target.value })} placeholder="Adicionar uma nova tarefa..." className="md:col-span-2 flex-grow p-3 bg-slate-100 dark:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    <select value={newTask.tag} onChange={(e) => setNewTask({ ...newTask, tag: e.target.value })} className="p-3 bg-slate-100 dark:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        {teamTags.map(tag => <option key={tag} value={tag}>{tag.toUpperCase()}</option>)}
-                    </select>
-                    <button type="submit" className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg hover:shadow-indigo-500/30 transition-shadow">Adicionar</button>
-                </form>
-                <ul className="space-y-3">
-                    {tasks.map(task => (
-                        <li key={task.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg group">
-                            <div className="flex items-center space-x-4">
-                                <input type="checkbox" checked={task.status === 'Concluída'} onChange={() => handleToggleTask(task.id, task.status)} className="h-5 w-5 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer" />
-                                <span className={`${task.status === 'Concluída' ? 'line-through text-slate-500' : 'text-slate-800 dark:text-slate-200'}`}>{task.text}</span>
-                            </div>
-                            <div className="flex items-center space-x-4">
-                                {task.tag && <span className={`px-3 py-1 text-xs font-bold rounded-full ${tagColor(task.tag)}`}>{task.tag.toUpperCase()}</span>}
-                                <button onClick={() => handleDeleteTask(task.id)} className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18} /></button>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-        </div>
-    );
-};
-
-// --- Componente de Avisos ---
-const Announcements = ({ announcements, setAnnouncements }) => {
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '' });
-
-    const handleAddAnnouncement = (e) => {
-        e.preventDefault();
-        if (!newAnnouncement.title || !newAnnouncement.content) return;
-        setAnnouncements(prev => [...prev, { ...newAnnouncement, id: crypto.randomUUID(), createdAt: new Date() }]);
-        setNewAnnouncement({ title: '', content: '' });
-        setIsModalOpen(false);
-    };
-
-    const handleDeleteAnnouncement = (id) => {
-        setAnnouncements(prev => prev.filter(ann => ann.id !== id));
-    };
-
-    return (
-        <div className="space-y-8">
-            <div className="flex justify-between items-center">
-                <h1 className="text-4xl font-bold text-slate-800 dark:text-white">Avisos da Equipa</h1>
-                <button onClick={() => setIsModalOpen(true)} className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold py-2 px-5 rounded-lg flex items-center space-x-2 hover:shadow-lg hover:shadow-indigo-500/30 transition-shadow">
-                    <Plus size={20} />
-                    <span>Novo Aviso</span>
-                </button>
-            </div>
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-                <h3 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">Criar Novo Aviso</h3>
-                <form onSubmit={handleAddAnnouncement} className="space-y-4">
-                    <input type="text" placeholder="Título do Aviso" value={newAnnouncement.title} onChange={(e) => setNewAnnouncement({ ...newAnnouncement, title: e.target.value })} className="w-full p-3 bg-slate-100 dark:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600" />
-                    <textarea placeholder="Conteúdo do aviso..." value={newAnnouncement.content} onChange={(e) => setNewAnnouncement({ ...newAnnouncement, content: e.target.value })} className="w-full p-3 bg-slate-100 dark:bg-slate-700 rounded-lg h-32 border border-slate-300 dark:border-slate-600" />
-                    <button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold py-3 rounded-lg hover:shadow-lg hover:shadow-indigo-500/30 transition-shadow">Publicar Aviso</button>
-                </form>
-            </Modal>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {announcements.map(ann => (
-                    <div key={ann.id} className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 relative group">
-                         <button onClick={() => handleDeleteAnnouncement(ann.id)} className="absolute top-4 right-4 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18} /></button>
-                        <h3 className="font-bold text-xl text-indigo-700 dark:text-indigo-400 mb-2">{ann.title}</h3>
-                        <p className="text-slate-600 dark:text-slate-300">{ann.content}</p>
-                        <p className="text-xs text-slate-400 mt-4">Publicado em: {new Date(ann.createdAt).toLocaleDateString()}</p>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-// --- Componente Calendário de Postagens ---
-const WeeklyCalendar = ({ posts, setPosts }) => {
-    const [currentDate, setCurrentDate] = useState(new Date());
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedDate, setSelectedDate] = useState(null);
-    const [newPost, setNewPost] = useState({ content: '', platform: 'Instagram' });
-    
-    const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-
-    const handleOpenModal = (date) => {
-        setSelectedDate(date);
-        setIsModalOpen(true);
-    };
-
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setNewPost({ content: '', platform: 'Instagram' });
-    };
-
-    const handleAddPost = (e) => {
-        e.preventDefault();
-        if (!newPost.content) return;
-        setPosts(prev => [...prev, { ...newPost, id: crypto.randomUUID(), date: formatDate(selectedDate) }]);
-        handleCloseModal();
-    };
-    
-    const handleDeletePost = (id) => {
-        setPosts(prev => prev.filter(post => post.id !== id));
-    };
-
-    const postsByDate = useMemo(() => {
-        return posts.reduce((acc, post) => {
-            const dateKey = post.date;
-            (acc[dateKey] = acc[dateKey] || []).push(post);
-            return acc;
-        }, {});
-    }, [posts]);
-
-    const changeWeek = (amount) => {
-        setCurrentDate(prevDate => {
-            const newDate = new Date(prevDate);
-            newDate.setDate(newDate.getDate() + amount * 7);
-            return newDate;
-        });
-    };
-    
-    const weeks = useMemo(() => {
-        const threeWeeks = [];
-        for (let i = 0; i < 3; i++) {
-            const weekStartDate = new Date(currentDate);
-            weekStartDate.setDate(weekStartDate.getDate() + i * 7);
-            threeWeeks.push(getWeekDays(weekStartDate));
-        }
-        return threeWeeks;
-    }, [currentDate]);
-
-    const platformColor = (platform) => {
-        switch(platform) {
-            case 'Instagram': return 'from-pink-500 to-purple-500';
-            case 'Facebook': return 'from-blue-500 to-sky-500';
-            case 'Blog': return 'from-orange-500 to-amber-500';
-            case 'LinkedIn': return 'from-cyan-500 to-blue-500';
-            default: return 'from-slate-500 to-slate-600';
-        }
-    }
-
-    return (
-        <div className="space-y-8">
-            <div className="flex justify-between items-center">
-                <h1 className="text-4xl font-bold text-slate-800 dark:text-white">Calendário</h1>
-                <div className="flex items-center space-x-2">
-                    <button onClick={() => changeWeek(-1)} className="p-2 rounded-lg bg-white dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"><ChevronLeft size={20}/></button>
-                    <button onClick={() => changeWeek(1)} className="p-2 rounded-lg bg-white dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"><ChevronRight size={20}/></button>
-                </div>
-            </div>
-
-            <div className="space-y-8">
-                {weeks.map((week, weekIndex) => (
-                    <div key={weekIndex} className="bg-white dark:bg-slate-800/50 p-4 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
-                        <h3 className="text-xl font-semibold text-center mb-4 text-indigo-700 dark:text-indigo-400">
-                            Semana de {week[0].toLocaleDateString()}
-                        </h3>
-                        <div className="grid grid-cols-7 gap-2">
-                            {dayNames.map(name => <div key={name} className="font-bold text-center text-slate-500 dark:text-slate-400 text-sm pb-2">{name}</div>)}
-                            {week.map((day) => (
-                                <div key={formatDate(day)} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2 flex flex-col h-56 group relative">
-                                    <p className="font-semibold text-center text-slate-800 dark:text-white">{day.getDate()}</p>
-                                    <div className="flex-grow overflow-y-auto space-y-1.5 mt-1 pr-1">
-                                        {postsByDate[formatDate(day)]?.map(post => (
-                                            <div key={post.id} className={`bg-gradient-to-br ${platformColor(post.platform)} p-2 rounded-lg text-xs text-white shadow-md relative`}>
-                                                <p className="font-semibold">{post.content}</p>
-                                                <button onClick={() => handleDeletePost(post.id)} className="absolute -top-1 -right-1 bg-white text-red-500 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"><X size={12}/></button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <button onClick={() => handleOpenModal(day)} className="absolute bottom-2 right-2 text-slate-400 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:text-indigo-600"><Plus size={16} /></button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            <Modal isOpen={isModalOpen} onClose={handleCloseModal}>
-                <h3 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">Agendar Post para {selectedDate?.toLocaleDateString()}</h3>
-                <form onSubmit={handleAddPost} className="space-y-4">
-                    <textarea placeholder="Conteúdo do post..." value={newPost.content} onChange={(e) => setNewPost({ ...newPost, content: e.target.value })} className="w-full p-3 bg-slate-100 dark:bg-slate-700 rounded-lg h-24 border border-slate-300 dark:border-slate-600" />
-                    <select value={newPost.platform} onChange={(e) => setNewPost({ ...newPost, platform: e.target.value })} className="w-full p-3 bg-slate-100 dark:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600">
-                        <option>Instagram</option>
-                        <option>Facebook</option>
-                        <option>Blog</option>
-                        <option>LinkedIn</option>
-                    </select>
-                    <button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold py-3 rounded-lg hover:shadow-lg hover:shadow-indigo-500/30 transition-shadow">Agendar</button>
-                </form>
-            </Modal>
-        </div>
-    );
-};
-
-// --- Componente Principal da Aplicação ---
-export default function App() {
-    const [page, setPage] = useState('dashboard');
-    const [campaigns, setCampaigns] = useState([]);
-    const [tasks, setTasks] = useState([]);
-    const [announcements, setAnnouncements] = useState([]);
-    const [posts, setPosts] = useState([]);
-
-    // Efeito para popular dados fictícios iniciais
-    useEffect(() => {
-        setCampaigns([
-            { id: 'fic1', name: 'Lançamento Edifício Atlântico', budget: 50000, status: 'Ativa', description: 'Campanha focada em mídia digital e outdoors para o lançamento do nosso novo empreendimento de luxo.', deadline: '2025-08-30', tag: 'fernanda' },
-            { id: 'fic2', name: 'Campanha de Verão - Descontos', budget: 25000, status: 'Planejada', description: 'Oferecer descontos progressivos em unidades selecionadas durante os meses de verão para impulsionar as vendas.', deadline: '2025-09-15', tag: 'carlos' },
-        ]);
-        setTasks([
-            { id: 'fic_task1', text: 'Preparar relatório de marketing de Maio', status: 'Pendente', tag: 'fernanda', createdAt: new Date(Date.now() - 10000) },
-            { id: 'fic_task2', text: 'Agendar reunião com a agência de publicidade', status: 'Concluída', tag: 'carlos', createdAt: new Date(Date.now() - 20000) },
-            { id: 'fic_task3', text: 'Definir orçamento para Q3', status: 'Pendente', tag: 'aleff', createdAt: new Date() },
-        ]);
-        setAnnouncements([
-            { id: 'fic_ann1', title: 'Reunião de Alinhamento Semanal', content: 'Lembrete: a nossa reunião de marketing semanal é amanhã às 10h. Por favor, tragam as vossas atualizações.', createdAt: new Date() },
-            { id: 'fic_ann2', title: 'Novas Diretrizes da Marca', content: 'O manual de identidade visual foi atualizado. Consultem a pasta partilhada para aceder à versão mais recente.', createdAt: new Date(Date.now() - 86400000) },
-        ]);
-    }, []);
-
-    const renderPage = () => {
-        switch (page) {
-            case 'dashboard':
-                return <Dashboard campaigns={campaigns} tasks={tasks} announcements={announcements} posts={posts} />;
-            case 'campaigns':
-                return <Campaigns campaigns={campaigns} setCampaigns={setCampaigns} />;
-            case 'tasks':
-                return <Tasks tasks={tasks} setTasks={setTasks} />;
-            case 'announcements':
-                return <Announcements announcements={announcements} setAnnouncements={setAnnouncements} />;
-            case 'calendar':
-                return <WeeklyCalendar posts={posts} setPosts={setPosts} />;
-            default:
-                return <Dashboard campaigns={campaigns} tasks={tasks} announcements={announcements} posts={posts} />;
-        }
-    };
-    
-    const NavLink = ({ icon, label, pageName }) => (
-         <button onClick={() => setPage(pageName)} className={`flex items-center space-x-4 w-full text-left px-4 py-3 rounded-xl transition-all duration-300 ${page === pageName ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50 hover:text-slate-800 dark:hover:text-white'}`}>
-            {icon}
-            <span className="font-semibold">{label}</span>
-        </button>
-    );
-
-    return (
-        <div className="flex min-h-screen bg-slate-50 dark:bg-slate-900 font-sans">
-            {/* Sidebar */}
-            <aside className="w-72 bg-white dark:bg-slate-800/50 p-6 flex-shrink-0 flex flex-col justify-between border-r border-slate-200 dark:border-slate-700">
-                <div>
-                    <div className="flex items-center space-x-3 mb-12">
-                        <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-xl flex items-center justify-center font-bold text-white text-2xl shadow-lg shadow-indigo-500/40">C</div>
-                        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Coinbra</h1>
-                    </div>
-                    <nav className="space-y-3">
-                        <NavLink icon={<LayoutDashboard size={22} />} label="Dashboard" pageName="dashboard" />
-                        <NavLink icon={<Megaphone size={22} />} label="Campanhas" pageName="campaigns" />
-                        <NavLink icon={<Bell size={22} />} label="Avisos" pageName="announcements" />
-                        <NavLink icon={<Calendar size={22} />} label="Calendário" pageName="calendar" />
-                        <NavLink icon={<ListChecks size={22} />} label="Tarefas" pageName="tasks" />
-                    </nav>
-                </div>
-                <div className="text-xs text-slate-400 dark:text-slate-500">
-                    <p className="font-semibold">Hub Colaborativo</p>
-                    <p>Versão Local</p>
                 </div>
             </aside>
-
-            {/* Main Content */}
-            <main className="flex-1 p-10 overflow-auto">
-                {renderPage()}
+        
+            <main class="flex-1 p-4 sm:p-6 md:p-8">
+                <header id="main-header" class="mb-8">
+                    <h2 id="main-title" class="text-3xl font-bold text-[#0D2A4C]"></h2>
+                    <p id="main-description" class="mt-2 text-stone-600"></p>
+                </header>
+                <div id="content-area"></div>
             </main>
         </div>
-    );
-}
+    </div>
+
+    <!-- Modal -->
+    <div id="form-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 id="form-modal-title"></h4>
+                <button class="modal-close-btn" onclick="closeFormModal()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div id="form-modal-content-area"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, serverTimestamp, query, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js";
+
+        // --- GLOBAL VARIABLES ---
+        const contentArea = document.getElementById('content-area');
+        const mainHeader = document.getElementById('main-header');
+        const loginView = document.getElementById('login-view');
+        const hubView = document.getElementById('hub-view');
+        const pendingView = document.getElementById('pending-view');
+        
+        let db, auth, storage, userId, currentUserName, currentUserRole;
+        let tasks = [], campaigns = [], events = [], budgets = [], calendarEvents = {}, collaborators = [], contacts = [], empreendimentos = [], tabelas = [];
+        let currentWeekStartDate = getStartOfWeek(new Date());
+        let allUnsubscribers = [];
+        let crmChart = null;
+        let tasksChart = null;
+        const appId = 'hub-gestao-coinbra';
+
+        // --- FIREBASE INITIALIZATION ---
+        async function initializeFirebase() {
+            try {
+                const firebaseConfig = {
+                    apiKey: "AIzaSyC_kGPDwfphWslGn7aPSSs4XLj0D6_5K7E",
+                    authDomain: "hub-coinbra.firebaseapp.com",
+                    projectId: "hub-coinbra",
+                    storageBucket: "hub-coinbra.appspot.com",
+                    messagingSenderId: "89043424615",
+                    appId: "1:89043424615:web:7fb619d96b6d234ab60bc2"
+                };
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                storage = getStorage(app);
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        const userDocRef = doc(db, "users", userId);
+                        const userDoc = await getDoc(userDocRef);
+
+                        if (userDoc.exists()) {
+                            const userData = userDoc.data();
+                            currentUserName = userData.name || user.displayName;
+                            currentUserRole = userData.role;
+                            document.getElementById('profile-picture').src = userData.photoURL || 'https://placehold.co/100x100/0D2A4C/FFFFFF?text=C';
+                            
+                            if (['admin', 'comercial', 'marketing'].includes(currentUserRole)) {
+                                setupFirestoreListeners();
+                                showHubView();
+                            } else {
+                                showPendingView();
+                            }
+                        } else {
+                            currentUserRole = 'admin'; // Default to admin for preview
+                            currentUserName = 'Admin';
+                            document.getElementById('profile-picture').src = 'https://placehold.co/100x100/0D2A4C/FFFFFF?text=C';
+                            setupFirestoreListeners();
+                            showHubView();
+                        }
+                    } else {
+                        currentUserRole = 'admin'; // Default for preview
+                        userId = 'preview-user';
+                        currentUserName = 'Admin';
+                        document.getElementById('profile-picture').src = 'https://placehold.co/100x100/0D2A4C/FFFFFF?text=C';
+                        setupFirestoreListeners();
+                        showHubView();
+                    }
+                    document.getElementById('welcome-message').textContent = `Bem-vindo, ${currentUserName || ''}`;
+                });
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+            }
+        }
+        
+        // --- FIRESTORE LISTENERS ---
+        function setupFirestoreListeners() {
+            if (!db) return;
+            allUnsubscribers.forEach(unsub => unsub && unsub());
+            allUnsubscribers = [];
+
+            const getCollectionListener = (collectionName, targetArray, renderFunc) => {
+                const collRef = collection(db, `artifacts/${appId}/public/data/${collectionName}`);
+                const unsubscribe = onSnapshot(query(collRef), (snapshot) => {
+                    targetArray.length = 0;
+                    snapshot.docs.forEach(doc => targetArray.push({ id: doc.id, ...doc.data() }));
+                    
+                    const activePageId = contentArea.firstElementChild?.id;
+                    if (activePageId && (activePageId.startsWith(collectionName) || activePageId === 'inicio-section')) {
+                         renderFunc();
+                    }
+                     if (collectionName === 'collaborators' && activePageId === 'tasks-section') {
+                        renderTarefasSection();
+                    }
+                }, (error) => console.error(`Error on ${collectionName} listener:`, error));
+                allUnsubscribers.push(unsubscribe);
+            };
+            
+            const dashboardRenderer = () => renderInicioSection();
+            getCollectionListener('tasks', tasks, dashboardRenderer);
+            getCollectionListener('contacts', contacts, dashboardRenderer);
+            getCollectionListener('campaigns', campaigns, dashboardRenderer);
+            getCollectionListener('budgets', budgets, dashboardRenderer);
+            getCollectionListener('collaborators', collaborators, renderTarefasSection);
+            getCollectionListener('events', events, renderEventosSection);
+            getCollectionListener('empreendimentos', empreendimentos, renderEmpreendimentosSection);
+            getCollectionListener('tabelas', tabelas, renderTabelasSection);
+            
+            const calendarCollectionRef = collection(db, `artifacts/${appId}/public/data/calendarEvents`);
+            const unsubCalendar = onSnapshot(query(calendarCollectionRef), (snapshot) => {
+                calendarEvents = {};
+                snapshot.docs.forEach(doc => {
+                    const event = { id: doc.id, ...doc.data() };
+                    const dateKey = event.date.split('T')[0];
+                    if (!calendarEvents[dateKey]) calendarEvents[dateKey] = [];
+                    calendarEvents[dateKey].push(event);
+                });
+                if (document.getElementById('calendario-section')) renderCalendarioSection();
+            }, (error) => console.error("Error on calendar listener:", error));
+            allUnsubscribers.push(unsubCalendar);
+        }
+
+        // --- AUTH & VIEW FUNCTIONS ---
+        function showLoginView() {
+            hubView.classList.add('hidden');
+            loginView.classList.remove('hidden');
+            loginView.classList.add('flex');
+        }
+        function showHubView() {
+            hubView.classList.remove('hidden');
+            loginView.classList.add('hidden');
+            loginView.classList.remove('flex');
+            pendingView.classList.add('hidden');
+            pendingView.classList.remove('flex');
+            renderMenu();
+            renderInicioSection();
+            setActiveNavItem(document.querySelector('[data-target="inicio"]'));
+        }
+        function showPendingView() {
+            hubView.classList.add('hidden');
+            loginView.classList.add('hidden');
+            pendingView.classList.remove('hidden');
+            pendingView.classList.add('flex');
+        }
+        function setActiveNavItem(element) {
+            document.querySelectorAll('#main-navigation .nav-item').forEach(item => item.classList.remove('active'));
+            if (element) element.classList.add('active');
+        }
+        
+        async function handleLogin(event) {
+            event.preventDefault();
+            const email = event.target.email.value;
+            const password = event.target.password.value;
+            const errorElement = document.getElementById('login-error');
+            errorElement.textContent = '';
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                console.error("Erro de login:", error.code);
+                errorElement.textContent = "Email ou palavra-passe inválidos.";
+            }
+        }
+        async function handleSignUp(event) {
+            event.preventDefault();
+            const form = event.target;
+            const name = form.name.value;
+            const email = form.email.value;
+            const password = form.password.value;
+            const errorElement = document.getElementById('signup-error');
+            if(errorElement) errorElement.textContent = '';
+            
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await updateProfile(userCredential.user, { displayName: name });
+                await setDoc(doc(db, "users", userCredential.user.uid), {
+                    name: name, email: email, role: "pending", createdAt: serverTimestamp()
+                });
+                await signOut(auth);
+                showSuccessMessage("Registo Concluído!", "A sua conta foi criada. Aguarde a aprovação de um administrador.");
+            } catch (error) {
+                 console.error("Erro de registo:", error.code);
+                 if (errorElement) {
+                     if (error.code === 'auth/email-already-in-use') {
+                        errorElement.textContent = "Este email já está em uso.";
+                     } else if (error.code === 'auth/weak-password') {
+                        errorElement.textContent = "A palavra-passe deve ter pelo menos 6 caracteres.";
+                     } else {
+                        errorElement.textContent = "Ocorreu um erro ao criar a conta.";
+                     }
+                 }
+            }
+        }
+        async function handleLogout() {
+            try {
+                await signOut(auth);
+                showLoginView();
+            } catch (error) {
+                console.error("Erro ao fazer logout:", error);
+            }
+        }
+        
+        async function handleProfilePictureUpload(event) {
+            const file = event.target.files[0];
+            if (!file || !userId) return;
+
+            const storageRef = ref(storage, `profile-pictures/${userId}`);
+            try {
+                await uploadBytes(storageRef, file);
+                const photoURL = await getDownloadURL(storageRef);
+                
+                const userDocRef = doc(db, "users", userId);
+                await updateDoc(userDocRef, { photoURL: photoURL });
+
+                document.getElementById('profile-picture').src = photoURL;
+                showSuccessMessage("Sucesso!", "A sua foto de perfil foi atualizada.");
+            } catch (error) {
+                console.error("Error uploading profile picture: ", error);
+                alert("Falha ao carregar a imagem.");
+            }
+        }
+
+        // --- CONTENT RENDERING ---
+        function renderInicioSection() {
+            document.getElementById('main-title').textContent = 'Dashboard';
+            document.getElementById('main-description').textContent = 'Visão geral das suas atividades de marketing e vendas.';
+            
+            const incompleteTasks = tasks.filter(t => !t.completed).length;
+            const activeCampaigns = campaigns.filter(c => c.status === 'Ativa').length;
+            const pendingBudgets = budgets.filter(b => b.status === 'Pendente').length;
+            const totalContacts = contacts.length;
+
+            contentArea.innerHTML = `
+                <div id="inicio-section" class="space-y-8">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="base-card"><p class="text-sm text-stone-500">Projetos Ativos</p><p class="text-3xl font-bold text-[#0D2A4C]">${activeCampaigns}</p></div>
+                        <div class="base-card"><p class="text-sm text-stone-500">Tarefas Pendentes</p><p class="text-3xl font-bold text-[#0D2A4C]">${incompleteTasks}</p></div>
+                        <div class="base-card"><p class="text-sm text-stone-500">Orçamentos Abertos</p><p class="text-3xl font-bold text-[#0D2A4C]">${pendingBudgets}</p></div>
+                        <div class="base-card"><p class="text-sm text-stone-500">Total de Contatos</p><p class="text-3xl font-bold text-[#0D2A4C]">${totalContacts}</p></div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                        <div class="lg:col-span-2 base-card"><h3 class="font-bold mb-4 text-stone-700">Contatos por Status</h3><canvas id="crmChartCanvas"></canvas></div>
+                        <div class="lg:col-span-3 base-card"><h3 class="font-bold mb-4 text-stone-700">Tarefas por Colaborador</h3><canvas id="tasksChartCanvas"></canvas></div>
+                    </div>
+                </div>
+            `;
+            renderCRMChart();
+            renderTasksChart();
+        }
+
+        function renderCRMChart() {
+            const ctx = document.getElementById('crmChartCanvas');
+            if (!ctx) return;
+            const statusCounts = contacts.reduce((acc, contact) => {
+                acc[contact.status] = (acc[contact.status] || 0) + 1;
+                return acc;
+            }, {});
+            if (crmChart) crmChart.destroy();
+            crmChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: Object.keys(statusCounts), datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#FEF3C7', '#DBEAFE', '#D1FAE5'], borderColor: '#ffffff', borderWidth: 2 }] },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }
+            });
+        }
+
+        function renderTasksChart() {
+            const ctx = document.getElementById('tasksChartCanvas');
+            if (!ctx) return;
+            const tasksPerCollaborator = collaborators.map(collab => ({ name: collab.name, count: tasks.filter(task => (task.assignedTo || []).includes(collab.name) && !task.completed).length }));
+            if (tasksChart) tasksChart.destroy();
+            tasksChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: tasksPerCollaborator.map(item => item.name), datasets: [{ label: 'Tarefas Pendentes', data: tasksPerCollaborator.map(item => item.count), backgroundColor: '#0D2A4C', borderRadius: 4 }] },
+                options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function renderCampanhasSection() {
+            document.getElementById('main-title').textContent = 'Gestor de Projetos';
+            document.getElementById('main-description').textContent = 'Acompanhe o status e os resultados de todos os projetos.';
+            contentArea.innerHTML = `
+                <div id="campaigns-section">
+                    <div class="text-right mb-6">
+                        <button class="primary-btn w-auto" onclick="openCampaignForm()">+ Adicionar Projeto</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        ${campaigns.map(c => `
+                        <div class="base-card cursor-pointer" onclick="openCampaignModal('${c.id}')">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="text-xl font-bold text-stone-800">${c.nome}</h3>
+                                <span class="status-tag status-${c.status.toLowerCase()}">${c.status}</span>
+                            </div>
+                            <p class="text-sm text-stone-500 mb-4">Responsável: ${c.responsavel}</p>
+                            <p class="text-sm text-stone-600 truncate"><strong>Objetivo:</strong> ${c.objetivo}</p>
+                        </div>`).join('') || '<p class="col-span-full text-center py-10 text-stone-500">Nenhum projeto encontrado.</p>'}
+                    </div>
+                </div>`;
+        }
+        
+        function renderEventosSection() {
+            document.getElementById('main-title').textContent = 'Gestor de Eventos';
+            document.getElementById('main-description').textContent = 'Planeje e gerencie todos os eventos da empresa.';
+            contentArea.innerHTML = `
+                <div id="events-section">
+                    <div class="text-right mb-6">
+                        <button class="primary-btn w-auto" onclick="openEventForm()">+ Adicionar Evento</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        ${events.map(e => `
+                        <div class="base-card cursor-pointer" onclick="openEventModal('${e.id}')">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="text-xl font-bold text-stone-800">${e.nome}</h3>
+                                <span class="status-tag status-${e.tipo.toLowerCase()}">${e.tipo}</span>
+                            </div>
+                            <p class="text-sm text-stone-500 mb-4">Data: ${new Date(e.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                            <p class="text-sm text-stone-600 truncate"><strong>Local:</strong> ${e.local}</p>
+                        </div>`).join('') || '<p class="col-span-full text-center py-10 text-stone-500">Nenhum evento encontrado.</p>'}
+                    </div>
+                </div>`;
+        }
+
+        function renderOrcamentosSection() {
+            document.getElementById('main-title').textContent = 'Gestor de Orçamentos';
+            document.getElementById('main-description').textContent = 'Registre e acompanhe todas as propostas e orçamentos.';
+            contentArea.innerHTML = `
+                <div id="budgets-section">
+                    <div class="text-right mb-6">
+                        <button class="primary-btn w-auto" onclick="openBudgetForm()">+ Adicionar Orçamento</button>
+                    </div>
+                    <div class="space-y-4">
+                        ${budgets.map(b => `
+                        <div class="base-card flex flex-wrap justify-between items-center gap-4 cursor-pointer" onclick="openBudgetModal('${b.id}')">
+                            <div class="flex-1">
+                                <h3 class="text-lg font-bold text-stone-800">${b.titulo}</h3>
+                                <p class="text-sm text-stone-500">Fornecedor: ${b.fornecedor}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xl font-bold text-stone-800">R$ ${parseFloat(b.valor || 0).toFixed(2)}</p>
+                                <span class="status-tag status-${b.status.toLowerCase()}">${b.status}</span>
+                            </div>
+                        </div>`).join('') || '<p class="text-center py-10 text-stone-500">Nenhum orçamento encontrado.</p>'}
+                    </div>
+                </div>`;
+        }
+        
+        function renderTarefasSection() {
+            document.getElementById('main-title').textContent = 'Lista de Tarefas';
+            document.getElementById('main-description').textContent = 'Gerencie e acompanhe as tarefas da equipa.';
+            
+            const assignees = [...new Set(collaborators.map(c => c.name))];
+            const addCollaboratorButton = currentUserRole === 'admin' 
+                ? `<button class="secondary-btn" onclick="openCollaboratorForm()">+ Adicionar Colaborador</button>` 
+                : '';
+
+            contentArea.innerHTML = `
+                <div id="tasks-section">
+                    <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
+                        <div id="task-filters" class="flex flex-col sm:flex-row flex-wrap gap-4 bg-white p-4 rounded-lg shadow-sm items-center">
+                            <div class="flex-grow">
+                                <label for="person-filter" class="text-sm font-medium text-stone-600 mr-2">Filtrar por:</label>
+                                <select id="person-filter" class="p-2 border border-stone-300 rounded-md">
+                                    <option value="all">Todos</option>
+                                    ${assignees.map(name => `<option value="${name}">${name}</option>`).join('')}
+                                </select>
+                            </div>
+                            ${addCollaboratorButton}
+                        </div>
+                        <button class="primary-btn w-auto" onclick="openTaskForm()">+ Adicionar Tarefa</button>
+                    </div>
+                    <div id="task-list-container" class="space-y-4"></div>
+                </div>
+            `;
+            document.getElementById('person-filter').addEventListener('change', updateTaskList);
+            updateTaskList();
+        }
+
+        function renderCRMSection() {
+            document.getElementById('main-title').textContent = 'CRM - Gestão de Clientes';
+            document.getElementById('main-description').textContent = 'Gerencie seus leads e clientes em um só lugar.';
+            contentArea.innerHTML = `
+                <div id="contacts-section">
+                    <div class="text-right mb-6">
+                        <button class="primary-btn w-auto" onclick="openContactForm()">+ Adicionar Contacto</button>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm overflow-x-auto">
+                        <table class="w-full min-w-max">
+                            <thead class="bg-stone-50">
+                                <tr>
+                                    <th class="p-4 text-left text-sm font-semibold text-stone-600">Nome</th>
+                                    <th class="p-4 text-left text-sm font-semibold text-stone-600">Email</th>
+                                    <th class="p-4 text-left text-sm font-semibold text-stone-600">Telefone</th>
+                                    <th class="p-4 text-left text-sm font-semibold text-stone-600">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${contacts.map(c => `
+                                <tr class="border-b border-stone-200 hover:bg-stone-50 cursor-pointer" onclick="openContactModal('${c.id}')">
+                                    <td class="p-4 font-medium text-stone-800">${c.nome}</td>
+                                    <td class="p-4 text-stone-600">${c.email}</td>
+                                    <td class="p-4 text-stone-600">${c.telefone}</td>
+                                    <td class="p-4"><span class="status-tag status-${c.status.toLowerCase()}">${c.status}</span></td>
+                                </tr>`).join('') || '<tr><td colspan="4" class="text-center py-10 text-stone-500">Nenhum contacto encontrado.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+        }
+        
+        function renderEmpreendimentosSection() {
+            document.getElementById('main-title').textContent = 'Empreendimentos';
+            document.getElementById('main-description').textContent = 'Gerencie o portfólio de imóveis da Coinbra.';
+            const addEmpreendimentoButton = currentUserRole !== 'marketing'
+                ? `<button class="primary-btn w-auto" onclick="openEmpreendimentoForm()">+ Adicionar Empreendimento</button>`
+                : '';
+
+            contentArea.innerHTML = `
+                <div id="empreendimentos-section">
+                    <div class="text-right mb-6">
+                        ${addEmpreendimentoButton}
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        ${empreendimentos.map(p => `
+                        <div class="base-card cursor-pointer" onclick="openEmpreendimentoModal('${p.id}')">
+                            <img src="${p.fotoUrl || 'https://placehold.co/600x400/0D2A4C/FFFFFF?text=Coinbra'}" alt="Foto do empreendimento ${p.nome}" class="w-full h-48 object-cover rounded-md mb-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="text-xl font-bold text-stone-800">${p.nome}</h3>
+                                <span class="status-tag status-${p.status.toLowerCase().replace(' ', '-')}">${p.status}</span>
+                            </div>
+                        </div>`).join('') || '<p class="col-span-full text-center py-10 text-stone-500">Nenhum empreendimento encontrado.</p>'}
+                    </div>
+                </div>`;
+        }
+
+        function renderTabelasSection() {
+            document.getElementById('main-title').textContent = 'Tabelas de Vendas';
+            document.getElementById('main-description').textContent = 'Acesse as tabelas de vendas atualizadas de cada empreendimento.';
+            contentArea.innerHTML = `
+                <div id="tabelas-section">
+                    <div class="text-right mb-6">
+                        <button class="primary-btn w-auto" onclick="openTabelaForm()">+ Adicionar Tabela</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        ${tabelas.map(t => `
+                        <div class="base-card">
+                            <img src="${t.empreendimentoFotoUrl || 'https://placehold.co/600x400/0D2A4C/FFFFFF?text=Coinbra'}" alt="Foto do empreendimento ${t.empreendimentoNome}" class="w-full h-48 object-cover rounded-md mb-4">
+                            <h3 class="text-xl font-bold text-stone-800 mb-4">${t.empreendimentoNome}</h3>
+                            <a href="${t.tabelaUrl}" target="_blank" download class="primary-btn flex items-center justify-center text-center">
+                                <svg class="mr-2" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Baixar Tabela
+                            </a>
+                        </div>`).join('') || '<p class="col-span-full text-center py-10 text-stone-500">Nenhuma tabela encontrada.</p>'}
+                    </div>
+                </div>`;
+        }
+        
+        function updateTaskList() {
+            const container = document.getElementById('task-list-container');
+            if (!container) return;
+
+            const personFilter = document.getElementById('person-filter').value;
+            let filteredTasks = [...tasks];
+
+            if (personFilter !== 'all') {
+                filteredTasks = filteredTasks.filter(task => (task.assignedTo || []).includes(personFilter));
+            }
+
+            filteredTasks.sort((a, b) => a.completed - b.completed || new Date(a.deadline) - new Date(b.deadline));
+            
+            if (filteredTasks.length === 0) {
+                container.innerHTML = `<div class="text-center p-8 bg-white rounded-lg"><p class="text-stone-500">Nenhuma tarefa encontrada para o filtro selecionado.</p></div>`;
+                return;
+            }
+            
+            container.innerHTML = filteredTasks.map(task => {
+                const deadlineDate = new Date(task.deadline + 'T00:00:00');
+                const isOverdue = !task.completed && deadlineDate < new Date();
+                const deadlineClass = isOverdue ? 'deadline-overdue' : '';
+                const formattedDate = deadlineDate.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                const assignedByTag = task.assignedBy ? `<span class="user-tag tag-admin">${task.assignedBy}</span>` : '';
+
+                return `
+                    <div class="task-card flex items-start gap-4 ${task.completed ? 'completed' : ''}">
+                        <input type="checkbox" class="mt-1.5 h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" onchange="toggleTaskCompletion('${task.id}', ${task.completed})" ${task.completed ? 'checked' : ''}>
+                        <div class="flex-1">
+                             <p class="text-stone-800 font-medium">${task.description}</p>
+                            <div class="mt-3 flex flex-wrap justify-between items-center gap-4">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-xs text-stone-500">Para:</span>
+                                    ${(task.assignedTo || []).map(name => `<span class="user-tag" style="background-color: #e5e7eb; color: #374151;">${name}</span>`).join('')}
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-xs text-stone-500">Prazo</span>
+                                    <p class="deadline-text ${deadlineClass}">${formattedDate}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="task-delete-btn" onclick="event.stopPropagation(); deleteItem('tasks', '${task.id}')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderCalendarioSection() {
+            document.getElementById('main-title').textContent = 'Calendário de Entregas';
+            document.getElementById('main-description').textContent = 'Planeje e visualize todas as entregas e prazos.';
+            contentArea.innerHTML = `<div id="calendario-section">${generateWeekHtml(currentWeekStartDate)}</div>`;
+        }
+        
+        function generateWeekHtml(startDate) {
+            const daysOfWeek = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+            const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            let weekGridHtml = '';
+
+            const endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6);
+            
+            const weekTitle = `Semana de ${startDate.getDate()} de ${monthNames[startDate.getMonth()]} a ${endDate.getDate()} de ${monthNames[endDate.getMonth()]} de ${endDate.getFullYear()}`;
+
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(startDate);
+                day.setDate(startDate.getDate() + i);
+                
+                const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+                const posts = calendarEvents[dateStr] || [];
+
+                const postsHtml = posts.map(post => `
+                    <div class="post-item">
+                        <span class="post-type-tag post-tag-${post.type.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")}">${post.type}</span>
+                        <p class="post-description">${post.description}</p>
+                        <button class="delete-btn" onclick="event.stopPropagation(); deleteItem('calendarEvents', '${post.id}')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                `).join('');
+
+                weekGridHtml += `
+                    <div class="day-card" onclick="openCalendarEventForm('${dateStr}')">
+                        <div class="day-card-header">
+                            <span class="day-name">${daysOfWeek[i]}</span>
+                            <span class="day-number">${day.getDate()}</span>
+                        </div>
+                        <div>${postsHtml}</div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="week-container" id="calendar-wrapper">
+                    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+                        <h3 class="week-header flex-grow" style="margin-bottom: 0; border: none;">${weekTitle}</h3>
+                        <div class="flex gap-2">
+                            <button class="secondary-btn" onclick="navigateWeek(-1)">‹ Semana Anterior</button>
+                            <button class="secondary-btn" onclick="navigateWeek(1)">Próxima Semana ›</button>
+                        </div>
+                    </div>
+                    <div class="week-grid">${weekGridHtml}</div>
+                </div>
+            `;
+        }
+
+        // --- MODAL & FORM FUNCTIONS ---
+        function closeFormModal() { document.getElementById('form-modal').classList.remove('visible'); }
+        function showSuccessMessage(title, message) {
+            const modalTitle = document.getElementById('form-modal-title');
+            const modalContentArea = document.getElementById('form-modal-content-area');
+            
+            modalTitle.textContent = title;
+            modalContentArea.innerHTML = `
+                <div class="text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p class="mt-4 text-stone-600">${message}</p>
+                    <button onclick="closeFormModal()" class="primary-btn mt-6 w-auto px-8">OK</button>
+                </div>
+            `;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+        function openSignUpModal() {
+            const modalTitle = document.getElementById('form-modal-title');
+            const modalContentArea = document.getElementById('form-modal-content-area');
+            
+            modalTitle.textContent = "Criar Nova Conta";
+            modalContentArea.innerHTML = `
+                <form id="signup-form" class="space-y-4">
+                    <div><label for="signup-name" class="font-medium text-sm">Nome Completo</label><input type="text" id="signup-name" name="name" required class="form-input mt-1"></div>
+                    <div><label for="signup-email" class="font-medium text-sm">Email</label><input type="email" id="signup-email" name="email" required class="form-input mt-1"></div>
+                    <div><label for="signup-password" class="font-medium text-sm">Palavra-passe (mín. 6 caracteres)</label><input type="password" id="signup-password" name="password" required class="form-input mt-1"></div>
+                    <p id="signup-error" class="text-sm text-red-600"></p>
+                    <div class="text-right"><button type="submit" class="primary-btn w-auto">Registar</button></div>
+                </form>
+            `;
+            document.getElementById('signup-form').addEventListener('submit', handleSignUp);
+            document.getElementById('form-modal').classList.add('visible');
+        }
+
+        function openCampaignForm(campaignId = null) {
+            const campaign = campaignId ? campaigns.find(c => c.id === campaignId) : null;
+            document.getElementById('form-modal-title').textContent = campaign ? "Editar Projeto" : "Adicionar Novo Projeto";
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <form id="form-modal-body" class="space-y-4">
+                    <input type="hidden" id="campaign-id" value="${campaignId || ''}">
+                    <div><label class="font-medium text-sm">Nome do Projeto</label><input type="text" id="campaign-name" class="form-input" required value="${campaign?.nome || ''}"></div>
+                    <div><label class="font-medium text-sm">Responsável</label><input type="text" id="campaign-owner" class="form-input" required value="${campaign?.responsavel || ''}"></div>
+                    <div><label class="font-medium text-sm">Status</label><select id="campaign-status" class="form-input" required><option>Planejada</option><option>Ativa</option><option>Concluída</option></select></div>
+                    <div><label class="font-medium text-sm">Objetivo</label><textarea id="campaign-goal" rows="3" class="form-input" required>${campaign?.objetivo || ''}</textarea></div>
+                    <div class="text-right"><button type="submit" class="primary-btn w-auto">Salvar</button></div>
+                </form>`;
+            if (campaign) document.getElementById('campaign-status').value = campaign.status;
+            document.getElementById('form-modal-body').onsubmit = saveCampaign;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+
+        async function saveCampaign(event) {
+            event.preventDefault();
+            const campaignId = document.getElementById('campaign-id').value;
+            const data = {
+                nome: document.getElementById('campaign-name').value,
+                responsavel: document.getElementById('campaign-owner').value,
+                status: document.getElementById('campaign-status').value,
+                objetivo: document.getElementById('campaign-goal').value,
+            };
+
+            if (!db) { console.warn("Offline mode."); closeFormModal(); return; }
+            try {
+                if (campaignId) {
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/campaigns`, campaignId), data);
+                } else {
+                    data.createdAt = serverTimestamp();
+                    await addDoc(collection(db, `artifacts/${appId}/public/data/campaigns`), data);
+                }
+                closeFormModal();
+            } catch (error) { console.error("Error saving project:", error); }
+        }
+
+        function openCampaignModal(campaignId) {
+            const campaign = campaigns.find(c => c.id === campaignId);
+            if (!campaign) return;
+            document.getElementById('form-modal-title').textContent = campaign.nome;
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <div class="space-y-4">
+                    <p><strong>Responsável:</strong> ${campaign.responsavel}</p>
+                    <p><strong>Status:</strong> <span class="status-tag status-${campaign.status.toLowerCase()}">${campaign.status}</span></p>
+                    <div><strong>Objetivo:</strong><p class="mt-1 p-3 bg-stone-50 rounded-md">${campaign.objetivo}</p></div>
+                    <div class="border-t pt-4 flex justify-end gap-2">
+                        <button class="secondary-btn" onclick="openCampaignForm('${campaign.id}')">Editar</button>
+                        <button class="danger-btn" onclick="deleteItem('campaigns', '${campaign.id}')">Apagar</button>
+                    </div>
+                </div>`;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+
+        function openEventForm(eventId = null) {
+            const event = eventId ? events.find(e => e.id === eventId) : null;
+            document.getElementById('form-modal-title').textContent = event ? "Editar Evento" : "Adicionar Novo Evento";
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <form id="form-modal-body" class="space-y-4">
+                    <input type="hidden" id="event-id" value="${eventId || ''}">
+                    <div><label class="font-medium text-sm">Nome do Evento</label><input type="text" id="event-name" class="form-input" required value="${event?.nome || ''}"></div>
+                    <div><label class="font-medium text-sm">Data</label><input type="date" id="event-date" class="form-input" required value="${event?.data || ''}"></div>
+                    <div><label class="font-medium text-sm">Local</label><input type="text" id="event-location" class="form-input" required value="${event?.local || ''}"></div>
+                    <div><label class="font-medium text-sm">Tipo</label><select id="event-type" class="form-input" required><option>Online</option><option>Presencial</option></select></div>
+                    <div><label class="font-medium text-sm">Descrição</label><textarea id="event-description" rows="4" class="form-input">${event?.descricao || ''}</textarea></div>
+                    <div class="text-right"><button type="submit" class="primary-btn w-auto">Salvar</button></div>
+                </form>`;
+            if (event) document.getElementById('event-type').value = event.tipo;
+            document.getElementById('form-modal-body').onsubmit = saveEvent;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+
+        async function saveEvent(event) {
+            event.preventDefault();
+            const eventId = document.getElementById('event-id').value;
+            const data = {
+                nome: document.getElementById('event-name').value,
+                data: document.getElementById('event-date').value,
+                local: document.getElementById('event-location').value,
+                tipo: document.getElementById('event-type').value,
+                descricao: document.getElementById('event-description').value,
+            };
+            if (!db) { console.warn("Offline mode."); closeFormModal(); return; }
+            try {
+                if (eventId) {
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/events`, eventId), data);
+                } else {
+                    data.createdAt = serverTimestamp();
+                    await addDoc(collection(db, `artifacts/${appId}/public/data/events`), data);
+                }
+                closeFormModal();
+            } catch (error) { console.error("Error saving event:", error); }
+        }
+
+        function openEventModal(eventId) {
+            const event = events.find(e => e.id === eventId);
+            if (!event) return;
+            document.getElementById('form-modal-title').textContent = event.nome;
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <div class="space-y-4">
+                    <p><strong>Data:</strong> ${new Date(event.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                    <p><strong>Local:</strong> ${event.local}</p>
+                    <p><strong>Tipo:</strong> <span class="status-tag status-${event.tipo.toLowerCase()}">${event.tipo}</span></p>
+                    ${event.descricao ? `<div><strong>Descrição:</strong><p class="mt-1 p-3 bg-stone-50 rounded-md whitespace-pre-wrap">${event.descricao}</p></div>` : ''}
+                    <div class="border-t pt-4 flex justify-end gap-2">
+                        <button class="secondary-btn" onclick="openEventForm('${event.id}')">Editar</button>
+                        <button class="danger-btn" onclick="deleteItem('events', '${event.id}')">Apagar</button>
+                    </div>
+                </div>`;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+
+        function openBudgetForm(budgetId = null) {
+            const budget = budgetId ? budgets.find(b => b.id === budgetId) : null;
+            document.getElementById('form-modal-title').textContent = budget ? "Editar Orçamento" : "Adicionar Novo Orçamento";
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <form id="form-modal-body" class="space-y-4">
+                    <input type="hidden" id="budget-id" value="${budgetId || ''}">
+                    <div><label class="font-medium text-sm">Título</label><input type="text" id="budget-title" class="form-input" required value="${budget?.titulo || ''}"></div>
+                    <div><label class="font-medium text-sm">Fornecedor</label><input type="text" id="budget-provider" class="form-input" required value="${budget?.fornecedor || ''}"></div>
+                    <div><label class="font-medium text-sm">Valor (R$)</label><input type="number" step="0.01" id="budget-value" class="form-input" required value="${budget?.valor || ''}"></div>
+                    <div><label class="font-medium text-sm">Status</label><select id="budget-status" class="form-input" required><option>Pendente</option><option>Aprovado</option><option>Rejeitado</option></select></div>
+                    <div><label class="font-medium text-sm">Descrição</label><textarea id="budget-description" rows="3" class="form-input">${budget?.descricao || ''}</textarea></div>
+                    <div class="text-right"><button type="submit" class="primary-btn w-auto">Salvar</button></div>
+                </form>`;
+            if (budget) document.getElementById('budget-status').value = budget.status;
+            document.getElementById('form-modal-body').onsubmit = saveBudget;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+
+        async function saveBudget(event) {
+            event.preventDefault();
+            const budgetId = document.getElementById('budget-id').value;
+            const data = {
+                titulo: document.getElementById('budget-title').value,
+                fornecedor: document.getElementById('budget-provider').value,
+                valor: document.getElementById('budget-value').value,
+                status: document.getElementById('budget-status').value,
+                descricao: document.getElementById('budget-description').value,
+            };
+            if (!db) { console.warn("Offline mode."); closeFormModal(); return; }
+            try {
+                if (budgetId) {
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/budgets`, budgetId), data);
+                } else {
+                    data.createdAt = serverTimestamp();
+                    await addDoc(collection(db, `artifacts/${appId}/public/data/budgets`), data);
+                }
+                closeFormModal();
+            } catch (error) { console.error("Error saving budget:", error); }
+        }
+
+        function openBudgetModal(budgetId) {
+            const budget = budgets.find(b => b.id === budgetId);
+            if (!budget) return;
+            document.getElementById('form-modal-title').textContent = budget.titulo;
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <div class="space-y-4">
+                    <p><strong>Fornecedor:</strong> ${budget.fornecedor}</p>
+                    <p><strong>Valor:</strong> R$ ${parseFloat(budget.valor || 0).toFixed(2)}</p>
+                    <p><strong>Status:</strong> <span class="status-tag status-${budget.status.toLowerCase()}">${budget.status}</span></p>
+                    ${budget.descricao ? `<div><strong>Descrição:</strong><p class="mt-1 p-3 bg-stone-50 rounded-md">${budget.descricao}</p></div>` : ''}
+                    <div class="border-t pt-4 flex justify-end gap-2">
+                        <button class="secondary-btn" onclick="openBudgetForm('${budget.id}')">Editar</button>
+                        <button class="danger-btn" onclick="deleteItem('budgets', '${budget.id}')">Apagar</button>
+                    </div>
+                </div>`;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+
+        async function toggleTaskCompletion(taskId, currentStatus) {
+            if (!db) return;
+            const taskRef = doc(db, `artifacts/${appId}/public/data/tasks`, taskId);
+            try {
+                await updateDoc(taskRef, { completed: !currentStatus });
+            } catch (error) {
+                console.error("Error updating task status:", error);
+            }
+        }
+        function openTaskForm() {
+            document.getElementById('form-modal-title').textContent = "Adicionar Nova Tarefa";
+            const collaboratorOptions = collaborators.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <form id="form-modal-body" class="space-y-4">
+                    <div><label class="font-medium text-sm">Descrição</label><textarea id="task-description" rows="4" class="form-input" required></textarea></div>
+                    <div><label class="font-medium text-sm">Prazo Final</label><input type="date" id="task-deadline" class="form-input" required></div>
+                    <div><label class="font-medium text-sm">Atribuir para</label><select id="task-assignedTo" class="form-input" multiple required>${collaboratorOptions}</select></div>
+                    <div class="text-right"><button type="submit" class="primary-btn w-auto">Salvar Tarefa</button></div>
+                </form>`;
+            document.getElementById('form-modal-body').onsubmit = saveTask;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+        async function saveTask(event) {
+            event.preventDefault();
+            const data = {
+                description: document.getElementById('task-description').value,
+                deadline: document.getElementById('task-deadline').value,
+                assignedTo: Array.from(document.getElementById('task-assignedTo').selectedOptions).map(o => o.value),
+                assignedBy: currentUserName || 'Admin',
+                createdAt: serverTimestamp(),
+                completed: false
+            };
+            if (!data.description || !data.deadline || data.assignedTo.length === 0) { alert("Preencha todos os campos."); return; }
+            if (!db) { console.warn("Offline mode."); closeFormModal(); return; }
+            try {
+                await addDoc(collection(db, `artifacts/${appId}/public/data/tasks`), data);
+                closeFormModal();
+            } catch (error) { console.error("Error saving task:", error); }
+        }
+        
+        function openCollaboratorForm() {
+            document.getElementById('form-modal-title').textContent = "Adicionar Colaborador";
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <form id="form-modal-body" class="space-y-4">
+                    <div><label class="font-medium text-sm">Nome do Colaborador</label><input type="text" id="collaborator-name" class="form-input" required></div>
+                    <div class="text-right"><button type="submit" class="primary-btn w-auto">Salvar</button></div>
+                </form>`;
+            document.getElementById('form-modal-body').onsubmit = saveCollaborator;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+        async function saveCollaborator(event) {
+            event.preventDefault();
+            const name = document.getElementById('collaborator-name').value;
+            if (!name) return;
+            if (!db) { console.warn("Offline mode."); closeFormModal(); return; }
+            try {
+                await addDoc(collection(db, `artifacts/${appId}/public/data/collaborators`), { name: name });
+                closeFormModal();
+            } catch (error) { console.error("Error saving collaborator:", error); }
+        }
+
+        function openContactForm(contactId = null) {
+            const contact = contactId ? contacts.find(c => c.id === contactId) : null;
+            document.getElementById('form-modal-title').textContent = contact ? "Editar Contacto" : "Adicionar Novo Contacto";
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <form id="form-modal-body" class="space-y-4">
+                    <input type="hidden" id="contact-id" value="${contactId || ''}">
+                    <div><label class="font-medium text-sm">Nome</label><input type="text" id="contact-name" class="form-input" required value="${contact?.nome || ''}"></div>
+                    <div><label class="font-medium text-sm">Email</label><input type="email" id="contact-email" class="form-input" value="${contact?.email || ''}"></div>
+                    <div><label class="font-medium text-sm">Telefone</label><input type="tel" id="contact-phone" class="form-input" value="${contact?.telefone || ''}"></div>
+                    <div><label class="font-medium text-sm">Status</label><select id="contact-status" class="form-input" required><option>Lead</option><option>Potencial</option><option>Cliente</option></select></div>
+                    <div><label class="font-medium text-sm">Observação</label><textarea id="contact-notes" rows="4" class="form-input">${contact?.observacao || ''}</textarea></div>
+                    <div class="text-right"><button type="submit" class="primary-btn w-auto">Salvar</button></div>
+                </form>`;
+            if (contact) document.getElementById('contact-status').value = contact.status;
+            document.getElementById('form-modal-body').onsubmit = saveContact;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+        async function saveContact(event) {
+            event.preventDefault();
+            const contactId = document.getElementById('contact-id').value;
+            const data = {
+                nome: document.getElementById('contact-name').value,
+                email: document.getElementById('contact-email').value,
+                telefone: document.getElementById('contact-phone').value,
+                status: document.getElementById('contact-status').value,
+                observacao: document.getElementById('contact-notes').value,
+            };
+            if (!db) { console.warn("Offline mode."); closeFormModal(); return; }
+            try {
+                if (contactId) {
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/contacts`, contactId), data);
+                } else {
+                    data.createdAt = serverTimestamp();
+                    await addDoc(collection(db, `artifacts/${appId}/public/data/contacts`), data);
+                }
+                closeFormModal();
+            } catch (error) { console.error("Error saving contact:", error); }
+        }
+        function openContactModal(contactId) {
+            const contact = contacts.find(c => c.id === contactId);
+            if (!contact) return;
+            document.getElementById('form-modal-title').textContent = contact.nome;
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <div class="space-y-4">
+                    <p><strong>Email:</strong> ${contact.email || 'N/A'}</p>
+                    <p><strong>Telefone:</strong> ${contact.telefone || 'N/A'}</p>
+                    <p><strong>Status:</strong> <span class="status-tag status-${contact.status.toLowerCase()}">${contact.status}</span></p>
+                    ${contact.observacao ? `<div><strong>Observação:</strong><p class="mt-1 p-3 bg-stone-50 rounded-md whitespace-pre-wrap">${contact.observacao}</p></div>` : ''}
+                    <div class="border-t pt-4 flex justify-end gap-2">
+                        <button class="secondary-btn" onclick="openContactForm('${contact.id}')">Editar</button>
+                        <button class="danger-btn" onclick="deleteItem('contacts', '${contact.id}')">Apagar</button>
+                    </div>
+                </div>`;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+
+        function openEmpreendimentoForm(empreendimentoId = null) {
+            const p = empreendimentoId ? empreendimentos.find(item => item.id === empreendimentoId) : null;
+            document.getElementById('form-modal-title').textContent = p ? "Editar Empreendimento" : "Adicionar Novo Empreendimento";
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <form id="form-modal-body" class="space-y-4">
+                    <input type="hidden" id="empreendimento-id" value="${empreendimentoId || ''}">
+                    <div><label class="font-medium text-sm">Nome do Empreendimento</label><input type="text" id="empreendimento-name" class="form-input" required value="${p?.nome || ''}"></div>
+                    <div><label class="font-medium text-sm">URL da Foto</label><input type="url" id="empreendimento-photo" class="form-input" value="${p?.fotoUrl || ''}"></div>
+                    <div><label class="font-medium text-sm">Status</label><select id="empreendimento-status" class="form-input" required><option>Lançamento</option><option>Em Obras</option><option>Entregue</option></select></div>
+                    <div><label class="font-medium text-sm">Descrição</label><textarea id="empreendimento-desc" rows="5" class="form-input" required>${p?.descricao || ''}</textarea></div>
+                    <div class="text-right"><button type="submit" class="primary-btn w-auto">Salvar</button></div>
+                </form>`;
+            if (p) document.getElementById('empreendimento-status').value = p.status;
+            document.getElementById('form-modal-body').onsubmit = saveEmpreendimento;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+        async function saveEmpreendimento(event) {
+            event.preventDefault();
+            const empreendimentoId = document.getElementById('empreendimento-id').value;
+            const data = {
+                nome: document.getElementById('empreendimento-name').value,
+                fotoUrl: document.getElementById('empreendimento-photo').value,
+                status: document.getElementById('empreendimento-status').value,
+                descricao: document.getElementById('empreendimento-desc').value,
+            };
+            if (!db) { console.warn("Offline mode."); closeFormModal(); return; }
+            try {
+                if (empreendimentoId) {
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/empreendimentos`, empreendimentoId), data);
+                } else {
+                    data.createdAt = serverTimestamp();
+                    await addDoc(collection(db, `artifacts/${appId}/public/data/empreendimentos`), data);
+                }
+                closeFormModal();
+            } catch (error) { console.error("Error saving empreendimento:", error); }
+        }
+        function openEmpreendimentoModal(empreendimentoId) {
+            const p = empreendimentos.find(item => item.id === empreendimentoId);
+            if (!p) return;
+            document.getElementById('form-modal-title').textContent = p.nome;
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <div class="space-y-4">
+                    <img src="${p.fotoUrl || 'https://placehold.co/600x400/0D2A4C/FFFFFF?text=Coinbra'}" alt="Foto de ${p.nome}" class="w-full h-64 object-cover rounded-lg">
+                    <p><strong>Status:</strong> <span class="status-tag status-${p.status.toLowerCase().replace(' ', '-')}">${p.status}</span></p>
+                    <div><strong>Descrição:</strong><p class="mt-1 p-3 bg-stone-50 rounded-md whitespace-pre-wrap">${p.descricao}</p></div>
+                    <div class="border-t pt-4 flex justify-end gap-2">
+                        <button class="secondary-btn" onclick="openEmpreendimentoForm('${p.id}')">Editar</button>
+                        <button class="danger-btn" onclick="deleteItem('empreendimentos', '${p.id}')">Apagar</button>
+                    </div>
+                </div>`;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+
+        function openTabelaForm() {
+            const empreendimentoOptions = empreendimentos.map(e => `<option value="${e.id}" data-foto="${e.fotoUrl}">${e.nome}</option>`).join('');
+            document.getElementById('form-modal-title').textContent = "Adicionar Tabela de Vendas";
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <form id="form-modal-body" class="space-y-4">
+                    <div>
+                        <label class="font-medium text-sm">Empreendimento</label>
+                        <select id="tabela-empreendimento-id" class="form-input" required>
+                            <option value="">Selecione um empreendimento</option>
+                            ${empreendimentoOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="font-medium text-sm">Arquivo da Tabela (PDF, Excel, etc.)</label>
+                        <input type="file" id="tabela-file" class="form-input" required>
+                    </div>
+                    <div class="text-right"><button type="submit" class="primary-btn w-auto">Salvar Tabela</button></div>
+                </form>`;
+            document.getElementById('form-modal-body').onsubmit = saveTabela;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+
+        async function saveTabela(event) {
+            event.preventDefault();
+            const select = document.getElementById('tabela-empreendimento-id');
+            const selectedOption = select.options[select.selectedIndex];
+            const empreendimentoId = selectedOption.value;
+            const empreendimentoNome = selectedOption.text;
+            const empreendimentoFotoUrl = selectedOption.dataset.foto;
+            const file = document.getElementById('tabela-file').files[0];
+
+            if (!empreendimentoId || !file) {
+                alert("Por favor, selecione um empreendimento e um arquivo.");
+                return;
+            }
+
+            try {
+                const storageRef = ref(storage, `tabelas/${Date.now()}-${file.name}`);
+                await uploadBytes(storageRef, file);
+                const tabelaUrl = await getDownloadURL(storageRef);
+
+                await addDoc(collection(db, `artifacts/${appId}/public/data/tabelas`), {
+                    empreendimentoId,
+                    empreendimentoNome,
+                    empreendimentoFotoUrl,
+                    tabelaUrl,
+                    fileName: file.name,
+                    createdAt: serverTimestamp()
+                });
+                closeFormModal();
+            } catch (error) {
+                console.error("Erro ao salvar tabela:", error);
+                alert("Falha ao salvar a tabela.");
+            }
+        }
+
+        function openCalendarEventForm(date) {
+            document.getElementById('form-modal-title').textContent = `Adicionar Entrega para ${new Date(date + 'T00:00:00').toLocaleDateString('pt-BR')}`;
+            document.getElementById('form-modal-content-area').innerHTML = `
+                <form id="form-modal-body" class="space-y-4">
+                    <input type="hidden" name="date" value="${date}">
+                    <div><label class="font-medium text-sm">Tipo</label><select name="type" class="form-input" required><option>Documento</option><option>Relatório</option><option>Apresentação</option><option>Outro</option></select></div>
+                    <div><label class="font-medium text-sm">Descrição</label><input type="text" name="description" class="form-input" required></div>
+                    <div class="text-right"><button type="submit" class="primary-btn w-auto">Salvar Entrega</button></div>
+                </form>`;
+            document.getElementById('form-modal-body').onsubmit = saveCalendarEvent;
+            document.getElementById('form-modal').classList.add('visible');
+        }
+        async function saveCalendarEvent(event) {
+            event.preventDefault();
+            const form = event.target;
+            const data = {
+                date: form.date.value,
+                type: form.type.value,
+                description: form.description.value,
+                createdAt: serverTimestamp()
+            };
+            if (!db) { console.warn("Offline mode."); closeFormModal(); return; }
+            try {
+                await addDoc(collection(db, `artifacts/${appId}/public/data/calendarEvents`), data);
+                closeFormModal();
+            } catch (error) { console.error("Error saving calendar event:", error); }
+        }
+        function navigateWeek(direction) {
+            currentWeekStartDate.setDate(currentWeekStartDate.getDate() + (7 * direction));
+            renderCalendarioSection();
+        }
+        
+        async function deleteItem(collectionName, itemId) {
+            if (!db) { console.warn("Offline mode."); return; }
+            if (confirm('Tem a certeza que deseja apagar este item?')) {
+                try {
+                    await deleteDoc(doc(db, `artifacts/${appId}/public/data/${collectionName}`, itemId));
+                    closeFormModal();
+                } catch (error) { console.error(`Error deleting item from ${collectionName}:`, error); }
+            }
+        }
+        function getStartOfWeek(date) {
+            const d = new Date(date);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            d.setHours(0, 0, 0, 0);
+            return new Date(d.setDate(diff));
+        }
+
+        // --- APP INITIALIZATION ---
+        function renderMenu() {
+            const mainNav = document.getElementById('main-navigation');
+            let menuItemsHTML = `
+                <button data-target="inicio" class="nav-item w-full text-left px-4 py-2.5 rounded-lg flex items-center font-semibold"><svg class="mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>Início</button>
+            `;
+
+            if (currentUserRole === 'admin' || currentUserRole === 'comercial') {
+                 menuItemsHTML += `<button data-target="crm" class="nav-item w-full text-left px-4 py-2.5 rounded-lg flex items-center font-semibold"><svg class="mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>CRM</button>`;
+                 menuItemsHTML += `<button data-target="tabelas" class="nav-item w-full text-left px-4 py-2.5 rounded-lg flex items-center font-semibold"><svg class="mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>Tabelas</button>`;
+            }
+
+            menuItemsHTML += `
+                <button data-target="empreendimentos" class="nav-item w-full text-left px-4 py-2.5 rounded-lg flex items-center font-semibold"><svg class="mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21h20"/><path d="M7 21V8a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v13"/><path d="M11 10h2"/><path d="M11 14h2"/><path d="M11 18h2"/></svg>Empreendimentos</button>
+                <button data-target="campanhas" class="nav-item w-full text-left px-4 py-2.5 rounded-lg flex items-center font-semibold"><svg class="mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Projetos</button>
+                <button data-target="eventos" class="nav-item w-full text-left px-4 py-2.5 rounded-lg flex items-center font-semibold"><svg class="mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3z"/><path d="M12.44 8.917a4 4 0 0 0-4.88 0C4.965 10.685 3 13.982 3 17.5V22h18v-4.5c0-3.518-1.965-6.815-4.56-8.583z"/></svg>Eventos</button>
+                <button data-target="orcamentos" class="nav-item w-full text-left px-4 py-2.5 rounded-lg flex items-center font-semibold"><svg class="mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Orçamentos</button>
+                <button data-target="tarefas" class="nav-item w-full text-left px-4 py-2.5 rounded-lg flex items-center font-semibold"><svg class="mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>Tarefas</button>
+            `;
+
+            if (currentUserRole === 'admin' || currentUserRole === 'marketing') {
+                menuItemsHTML += `<button data-target="calendario" class="nav-item w-full text-left px-4 py-2.5 rounded-lg flex items-center font-semibold"><svg class="mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>Calendário</button>`;
+            }
+            
+            mainNav.innerHTML = menuItemsHTML;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const pageRenderers = {
+                'inicio': renderInicioSection,
+                'campanhas': renderCampanhasSection,
+                'eventos': renderEventosSection,
+                'orcamentos': renderOrcamentosSection,
+                'tarefas': renderTarefasSection,
+                'calendario': renderCalendarioSection,
+                'crm': renderCRMSection,
+                'empreendimentos': renderEmpreendimentosSection,
+                'tabelas': renderTabelasSection,
+            };
+            
+            document.getElementById('main-navigation').addEventListener('click', (event) => {
+                const target = event.target.closest('.nav-item');
+                if (!target) return;
+                const pageKey = target.dataset.target;
+                if (pageKey && pageRenderers[pageKey]) {
+                    pageRenderers[pageKey]();
+                    setActiveNavItem(target);
+                }
+            });
+            
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
+            document.getElementById('logout-button').addEventListener('click', handleLogout);
+            document.getElementById('logout-pending-button').addEventListener('click', handleLogout);
+            document.getElementById('profile-picture-upload').addEventListener('change', handleProfilePictureUpload);
+
+            initializeFirebase();
+        });
+
+        // Expose functions to global scope
+        window.closeFormModal = closeFormModal;
+        window.openSignUpModal = openSignUpModal;
+        window.openCampaignForm = openCampaignForm;
+        window.openCampaignModal = openCampaignModal;
+        window.openEventForm = openEventForm;
+        window.openEventModal = openEventModal;
+        window.openBudgetForm = openBudgetForm;
+        window.openBudgetModal = openBudgetModal;
+        window.openTaskForm = openTaskForm;
+        window.toggleTaskCompletion = toggleTaskCompletion;
+        window.openCollaboratorForm = openCollaboratorForm;
+        window.openContactForm = openContactForm;
+        window.openContactModal = openContactModal;
+        window.openEmpreendimentoForm = openEmpreendimentoForm;
+        window.openEmpreendimentoModal = openEmpreendimentoModal;
+        window.openTabelaForm = openTabelaForm;
+        window.openCalendarEventForm = openCalendarEventForm;
+        window.navigateWeek = navigateWeek;
+        window.deleteItem = deleteItem;
+    </script>
+</body>
+</html>
